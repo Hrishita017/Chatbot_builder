@@ -1,4 +1,3 @@
-import './style.css'
 import './ChatbotBuilder.css';
 import React, { useState, useEffect, useRef} from 'react';
 import ChatbotPreview from './ChatbotPreview'; 
@@ -30,7 +29,7 @@ interface Node {
 interface Connection {
   id: string;
   sourceId: string;
-  sourceOutput: string; // Could be 'output-1' or an option value for multi-choice
+  sourceOutput: string; 
   targetId: string;
 }
 
@@ -42,6 +41,10 @@ interface Message {
   nodeId?: string;
 }
 
+interface NodeTypeDefinition {
+    type: 'start' | 'message' | 'multichoice' | 'button' | 'textinput' | 'rating'; // Ensure this matches your node types
+    label: string;
+}
 
 
 const ChatbotBuilder = () => {
@@ -57,20 +60,25 @@ const ChatbotBuilder = () => {
   const [draggingNode, setDraggingNode] = useState<Node | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [creatingConnection, setCreatingConnection] = useState<any | null>(null);
-  const [availableNodeTypes] = useState<Array<{ type: Node['type'], label: string, color: string }>>([
-    { type: 'start', label: 'Start', color: '#4CAF50' },
-    { type: 'message', label: 'Message', color: '#607D8B' },
-    { type: 'multichoice', label: 'Multi Choice', color: '#2196F3' },
-    { type: 'button', label: 'Button', color: '#9C27B0' },
-    { type: 'textinput', label: 'Text Input', color: '#FF5722' },
-    { type: 'rating', label: 'Rating', color: '#795548' },
-  ]);
+ 
+
+const [availableNodeTypes] = useState<NodeTypeDefinition[]>([ // Using the new interface
+    { type: 'start', label: 'Start' },
+    { type: 'message', label: 'Message' },
+    { type: 'multichoice', label: 'Multi Choice' },
+    { type: 'button', label: 'Button' },
+    { type: 'textinput', label: 'Text Input' },
+    { type: 'rating', label: 'Rating' },
+]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
-
+   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
 
   useEffect(() => {
     if (nodes.length === 0) {
@@ -171,9 +179,6 @@ const ChatbotBuilder = () => {
     return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   };
 const exportChatbot = () => {
-  // 1. Prepare your chatbot configuration data
-  // The 'rules' array you showed in your console output is not used by the ChatbotPreview,
-  // so we won't include it in the exported config.
   const chatbotConfig = {
     botName,
     welcomeMessage,
@@ -183,15 +188,8 @@ const exportChatbot = () => {
     mountId: 'my-chatbot-widget', // The ID of the div where the chatbot will be injected
   };
 
-  // 2. Stringify the entire chatbotConfig object into a JSON string
-  // This string will be embedded directly into the JavaScript within the HTML script tag.
   const configJsonString = JSON.stringify(chatbotConfig, null, 2); // null, 2 for pretty-printing in the output
 
-  // 3. Define the URL where your compiled widget bundle will be hosted.
-  // *** IMPORTANT: You MUST change this URL to where you deploy your 'widget.bundle.js' file. ***
-  // For local testing, if your widget bundle is in the same `build` or `dist` folder as your main app,
-  // and you're testing on the same server, a relative path like '/widget.bundle.js' might work.
-  // But for actual deployment, use an absolute URL (e.g., from a CDN or your web server).
   const scriptUrl = 'https://your-domain.com/path/to/my-chatbot-widget.bundle.js'; // <<<--- !!! CHANGE THIS URL !!! --->>>
 
   // 4. Construct the complete HTML script tag
@@ -235,6 +233,7 @@ const exportChatbot = () => {
       alert('Failed to copy script to clipboard. Please copy it manually from the console.');
     });
 };
+
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;
 
@@ -538,12 +537,13 @@ const exportChatbot = () => {
     setZoom((prevZoom) => Math.max(prevZoom - 0.1, 0.5));
   };
 
-  return (
+ return (
     <div className="app-container">
       <header className="app-header">
         <div className="header-content">
           <h1 className="app-title">No-Code Chatbot Builder</h1>
           <div className="header-buttons">
+            {/* The export button remains */}
             <button onClick={exportChatbot} className="btn btn-export">
               Export Chatbot
             </button>
@@ -552,23 +552,44 @@ const exportChatbot = () => {
       </header>
 
       {isPreviewMode ? (
-        // ******************************************************
-        // THIS IS THE UPDATED SECTION:
-        // Replace your old preview UI with the new ChatbotPreview component
         <ChatbotPreview
-        botName={botName}
-        welcomeMessage={welcomeMessage}
-        fallbackMessage={fallbackMessage}
-        nodes={nodes} // Pass the nodes from the builder
-        connections={connections} // Pass the connections from the builder
-      />
-        // ******************************************************
+          botName={botName}
+          welcomeMessage={welcomeMessage}
+          fallbackMessage={fallbackMessage}
+          nodes={nodes}
+          connections={connections}
+        />
       ) : (
-        <div className="flow-builder-container">
-          <div className="sidebar">
-            <div className="sidebar-section">
-              <h3>Chatbot Settings</h3>
-              <div className="setting-item">
+        <div className={`flow-builder-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+          {isSidebarCollapsed && (
+            <div className="sidebar-toggle-bar">
+              <button
+                id="sidebar-toggle-btn-show"
+                className="btn btn-toggle"
+                onClick={toggleSidebar}
+                aria-label="Show Sidebar"
+              >
+                <span className="icon-hamburger"></span>
+              </button>
+            </div>
+          )}
+
+          {!isSidebarCollapsed && (
+            <div className="sidebar">
+              <div className="sidebar-section">
+                <div className="sidebar-header-with-toggle">
+                  <h3>Chatbot Settings</h3>
+                  <button
+                    id="sidebar-toggle-btn-hide"
+                    className="btn btn-toggle btn-hide-sidebar"
+                    onClick={toggleSidebar}
+                    aria-label="Hide Sidebar"
+                  >
+                    <span className="icon-arrow-left"></span>
+                  </button>
+                </div>
+
+                <div className="setting-item">
                   <label>Name</label>
                   <input
                     type="text"
@@ -603,8 +624,8 @@ const exportChatbot = () => {
                   {availableNodeTypes.map((nodeType) => (
                     <div
                       key={nodeType.type}
-                      className="node-type-item"
-                      style={{ backgroundColor: nodeType.color }}
+                       className={`node-type-item node-type-${nodeType.type.toLowerCase()}`}
+            
                       onClick={() => addNewNode(nodeType.type)}
                     >
                       {nodeType.label}
@@ -635,7 +656,6 @@ const exportChatbot = () => {
                     />
                   </div>
 
-                  {/* Options for MultiChoice and Button nodes */}
                   {(selectedNode.type === 'multichoice' || selectedNode.type === 'button') && (
                     <div className="setting-item">
                       <label>Options</label>
@@ -669,17 +689,15 @@ const exportChatbot = () => {
                     </div>
                   )}
 
-                  {/* AI Toggle for relevant nodes */}
                   {(selectedNode.type === 'message' || selectedNode.type === 'textinput') && (
-                    <div className="setting-item">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={selectedNode.data.useAI || false}
-                          onChange={(e) => updateNodeData(selectedNode.id, 'useAI', e.target.checked)}
-                        />
-                        Use AI for response
-                      </label>
+                    <div className="setting-item ai-toggle-section">
+                      <input
+                        type="checkbox"
+                        id="aiToggle"
+                        checked={selectedNode.data.useAI || false}
+                        onChange={(e) => updateNodeData(selectedNode.id, 'useAI', e.target.checked)}
+                      />
+                      <label htmlFor="aiToggle">Use AI for response</label>
                     </div>
                   )}
 
@@ -691,146 +709,142 @@ const exportChatbot = () => {
                 </div>
               )}
             </div>
+          )}
 
-            <div className="flow-canvas-container">
-              <div className="flow-canvas-tools">
-                <button onClick={handleZoomIn} className="zoom-btn">
-                  +
-                </button>
-                <span>{Math.round(zoom * 100)}%</span>
-                <button onClick={handleZoomOut} className="zoom-btn">
-                  -
-                </button>
-              </div>
-              <div
-                className="flow-canvas"
-                ref={canvasRef}
-                onMouseDown={handleCanvasMouseDown}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseUp={handleCanvasMouseUp}
-                onMouseLeave={handleCanvasMouseUp}
-              >
-                <div className="canvas-content" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
-                  <svg className="connections-layer" width="100%" height="100%">
-                    {connections.map((conn) => {
-                      const sourceNode = nodes.find((n) => n.id === conn.sourceId);
-                      const targetNode = nodes.find((n) => n.id === conn.targetId);
+          <div className="flow-canvas-container">
+            <div className="flow-canvas-tools">
+              <button onClick={handleZoomIn} className="zoom-btn">
+                +
+              </button>
+              <span>{Math.round(zoom * 100)}%</span>
+              <button onClick={handleZoomOut} className="zoom-btn">
+                -
+              </button>
+            </div>
+            <div
+              className="flow-canvas"
+              ref={canvasRef}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              onMouseLeave={handleCanvasMouseUp}
+            >
+              <div className="canvas-content" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+                <svg className="connections-layer" width="100%" height="100%">
+                  {connections.map((conn) => {
+                    const sourceNode = nodes.find((n) => n.id === conn.sourceId);
+                    const targetNode = nodes.find((n) => n.id === conn.targetId);
 
-                      if (!sourceNode || !targetNode) return null;
+                    if (!sourceNode || !targetNode) return null;
 
-                      const startX = sourceNode.x + 200; // Right side of source node
-                      const startY = sourceNode.y + 40; // Mid-height of source node
-                      const endX = targetNode.x; // Left side of target node
-                      const endY = targetNode.y + 40; // Mid-height of target node
+                    const startX = sourceNode.x + 200;
+                    const startY = sourceNode.y + 40;
+                    const endX = targetNode.x;
+                    const endY = targetNode.y + 40;
 
-                      const controlX1 = startX + 50;
-                      const controlX2 = endX - 50;
+                    const controlX1 = startX + 50;
+                    const controlX2 = endX - 50;
 
-                      return (
-                        <g key={conn.id}>
-                          <path
-                            d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
-                            fill="none"
-                            stroke="#888"
-                            strokeWidth="2"
-                            onClick={() => deleteConnection(conn.id)}
-                          />
-                          <circle cx={endX} cy={endY} r="5" fill="#888" />
-                          {/* Connection Label */}
-                          <text
-                            x={(startX + endX) / 2}
-                            y={(startY + endY) / 2 - 10}
-                            fill="#555"
-                            fontSize="10"
-                            textAnchor="middle"
-                            pointerEvents="none"
-                          >
-                            {conn.sourceOutput}
-                          </text>
-                        </g>
-                      );
-                    })}
-
-                    {creatingConnection && (
-                      <path
-                        d={`M ${creatingConnection.startX} ${creatingConnection.startY}
-                          C ${creatingConnection.startX + 50} ${creatingConnection.startY},
-                            ${creatingConnection.endX - 50} ${creatingConnection.endY},
-                            ${creatingConnection.endX} ${creatingConnection.endY}`}
-                        fill="none"
-                        stroke="#888"
-                        strokeWidth="2"
-                        strokeDasharray="5,5"
-                      />
-                    )}
-                  </svg>
-                  {nodes.map((node) => {
-                    const nodeType = availableNodeTypes.find((nt) => nt.type === node.type);
                     return (
-                      <div
-                        key={node.id}
-                        className={`flow-node ${selectedNode?.id === node.id ? 'selected' : ''}`}
-                        style={{
-                          left: node.x,
-                          top: node.y,
-                          backgroundColor: nodeType?.color || '#ddd',
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedNode(node);
-                        }}
-                      >
-                        <div className="flow-node-header">
-                          {node.data?.title || 'Unnamed Node'}
-                          <div className="flow-node-input">
-                            <div className="input-point" />
-                          </div>
-                        </div>
-                        <div className="flow-node-content">
-                          {node.data?.content || 'No content'}
-                        </div>
-                        {node.outputs && node.outputs.length > 0 && (
-                          <div className="flow-node-outputs">
-                            {node.outputs.map((output: string) => (
-                              <div
-                                key={output}
-                                className="output-point"
-                                onMouseDown={(e) => startConnection(node.id, output, e)}
-                              />
-                            ))}
-                          </div>
-                        )}
-                        {(node.type === 'multichoice' || node.type === 'button') && node.data.options && (
-                          <div className="node-options-display">
-                            {node.data.options.map((option, index) => (
-                              <div
-                                key={index}
-                                className="node-option-item-display">
-                                {option.label}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flow-node-type">
-                          {nodeType?.type.toUpperCase() || 'NODE'}
-                        </div>
-                      </div>
+                      <g key={conn.id}>
+                        <path
+                          d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
+                          fill="none"
+                          stroke="#888"
+                          strokeWidth="2"
+                          onClick={() => deleteConnection(conn.id)}
+                        />
+                        <circle cx={endX} cy={endY} r="5" fill="#888" />
+                        <text
+                          x={(startX + endX) / 2}
+                          y={(startY + endY) / 2 - 10}
+                          fill="#555"
+                          fontSize="10"
+                          textAnchor="middle"
+                          pointerEvents="none"
+                        >
+                          {conn.sourceOutput}
+                        </text>
+                      </g>
                     );
                   })}
-                </div>
+
+                  {creatingConnection && (
+                    <path
+                      d={`M ${creatingConnection.startX} ${creatingConnection.startY}
+                        C ${creatingConnection.startX + 50} ${creatingConnection.startY},
+                          ${creatingConnection.endX - 50} ${creatingConnection.endY},
+                          ${creatingConnection.endX} ${creatingConnection.endY}`}
+                      fill="none"
+                      stroke="#888"
+                      strokeWidth="2"
+                      strokeDasharray="5,5"
+                    />
+                  )}
+                </svg>
+                {nodes.map((node) => {
+                  const nodeType = availableNodeTypes.find((nt) => nt.type === node.type);
+                  return (
+                    <div
+                      key={node.id}
+                      className={`flow-node ${selectedNode?.id === node.id ? 'selected' : ''}`}
+                       style={{ left: node.x, top: node.y }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedNode(node);
+                      }}
+                    >
+                      <div className="flow-node-header">
+                        {node.data?.title || 'Unnamed Node'}
+                        <div className="flow-node-input">
+                          <div className="input-point" />
+                        </div>
+                      </div>
+                      <div className="flow-node-content">
+                        {node.data?.content || 'No content'}
+                      </div>
+                      {node.outputs && node.outputs.length > 0 && (
+                        <div className="flow-node-outputs">
+                          {node.outputs.map((output: string) => (
+                            <div
+                              key={output}
+                              className="output-point"
+                              onMouseDown={(e) => startConnection(node.id, output, e)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {(node.type === 'multichoice' || node.type === 'button') && node.data.options && (
+                        <div className="node-options-display">
+                          {node.data.options.map((option, index) => (
+                            <div
+                              key={index}
+                              className="node-option-item-display">
+                              {option.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flow-node-type">
+                        {nodeType?.type.toUpperCase() || 'NODE'}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
-        )}
-        <ChatbotPreview
-        botName={botName}
-        welcomeMessage={welcomeMessage}
-        fallbackMessage={fallbackMessage}
-        nodes={nodes} // Pass the nodes from the builder
-        connections={connections} // Pass the connections from the builder
-      />
-      </div>
-    );
-  };
-
+        </div>
+      )}
+      <ChatbotPreview
+          botName={botName}
+          welcomeMessage={welcomeMessage}
+          fallbackMessage={fallbackMessage}
+          nodes={nodes}
+          connections={connections}
+        />
+    </div>
+  );
+};
+    
   export default ChatbotBuilder;

@@ -1,125 +1,345 @@
-
-
-/* Container and layout */
-.app-container {
-  min-height: 100vh;
-  background-color: #f3f4f6; /* light gray */
-  padding: 1rem;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #333;
+/* --- Global Styles & Resets --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-/* Header */
+:root {
+  /* Main Theme Colors */
+  --primary-dark: #333; /* For header, darker elements */
+  --primary-blue: #2196F3; /* Your existing blue for buttons */
+  --accent-green: #4CAF50; /* Your existing green for active states */
+  --accent-red: #f44336; /* Your existing red for delete */
+
+  /* New Playful Accent Colors */
+  --playful-purple: #5c6bc0; /* A deep, professional blue/purple */
+  --playful-light-purple: #7e8ce3; /* A lighter, more energetic blue/purple */
+  --playful-border-light: #e0e0e0;
+  --playful-shadow-light: rgba(0, 0, 0, 0.08);
+  --playful-shadow-medium: rgba(0, 0, 0, 0.15);
+
+  /* General UI Colors */
+  --bg-light-grey: #f5f5f5; /* App background */
+  --bg-white: #ffffff;
+  --bg-sidebar: #f0f0f0;
+  --bg-chat-light: #f9f9f9;
+  --border-default: #ddd;
+  --text-dark: #333;
+  --text-medium: #555;
+  --text-light: #888;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: var(--text-dark);
+  background-color: var(--bg-light-grey); /* From your existing CSS */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0; /* Remove padding if you want header/footer full width, add back if needed */
+  user-select: none; /* Prevent accidental text selection during drag */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Allow text selection specifically within inputs/text areas */
+input[type="text"],
+textarea,
+.chat-input,
+.chat-bubble {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+/* --- Header --- */
 .app-header {
-  background-color: #7dc0f0;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+  background-color: var(--primary-dark); /* From your existing CSS */
+  color: white;
+  padding: 10px 20px;
+  box-shadow: 0 4px 15px var(--playful-shadow-light); /* More prominent shadow, playful */
+  z-index: 20;
+  transition: all 0.3s ease; /* For hover effect */
+  border-bottom: 1px solid var(--playful-purple); /* Playful accent line */
+}
+
+.app-header:hover {
+    background-color: #444; /* Slightly lighter on hover */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); /* Stronger playful shadow */
+    border-color: var(--playful-light-purple); /* Lighter playful accent line */
 }
 
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .app-title {
-  font-size: 1.5rem;
+  margin: 0;
+  font-size: 1.8rem; /* Slightly larger title */
   font-weight: 700;
-  color: #1f2937; /* gray-800 */
+  color: #fff; /* Title color on dark header */
+  letter-spacing: -0.02em;
+  transition: color 0.3s ease;
 }
 
-.header-buttons > button {
-  margin-left: 0.5rem;
+/* Header title color change on header hover */
+.app-header:hover .app-title {
+    color: var(--playful-light-purple); /* Playful color on hover */
 }
 
-/* Buttons */
+
+.header-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* --- General Button Styles --- */
 .btn {
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
+  padding: 8px 16px;
   border: none;
+  border-radius: 6px; /* Slightly more rounded */
   cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.2s ease;
+  font-weight: 600; /* Slightly bolder */
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:hover {
+  transform: translateY(-2px); /* More pronounced lift */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  opacity: 0.95;
+}
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  opacity: 1;
 }
 
 .btn-toggle {
-  background-color: #3b82f6; /* blue-600 */
-  color: #fff;
+  background-color: var(--playful-purple); /* Use new playful accent */
+  color: white;
+  width: 40px; /* Specific size for icons */
+  height: 40px;
+  padding: 0;
+  border-radius: 8px; /* Square with rounded corners */
+  box-shadow: 0 3px 8px rgba(92, 107, 192, 0.3);
+}
+.btn-toggle:hover {
+  background-color: var(--playful-light-purple);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgba(92, 107, 192, 0.4);
 }
 
 .btn-toggle.btn-toggle-active {
-  background-color: #4b5563; /* gray-600 */
-  color: #fff;
+  background-color: var(--accent-green); /* Your existing green for active state */
 }
 
-.btn-toggle:hover {
-  background-color: #2563eb; /* blue-700 */
+/* Specific sidebar hide button (inside sidebar) */
+.sidebar-header-with-toggle .btn-hide-sidebar {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%; /* Make it round */
+    background-color: #607D8B; /* A darker, more subtle color for the hide button */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.sidebar-header-with-toggle .btn-hide-sidebar:hover {
+    background-color: #4a5568;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .btn-export {
-  background-color: #22c55e; /* green-600 */
-  color: #fff;
+  background-color: var(--primary-blue); /* Your existing blue */
+  color: white;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
 }
 
+/* Export Button Text Color on Hover (NEW) */
 .btn-export:hover {
-  background-color: #16a34a; /* green-700 */
+  background-color: #1976D2; /* Darker blue on hover */
+  color: #cceeff; /* Lighter, highly visible text on darker blue */
 }
 
-/* Preview Container */
+.btn-delete {
+  background-color: var(--accent-red); /* Your existing red */
+  color: white;
+  margin-top: 10px;
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.2);
+}
+.btn-delete:hover {
+  background-color: #d32f2f;
+}
+
+/* --- ICON STYLES (Pure CSS Hamburger & Arrow) --- */
+.icon-hamburger,
+.icon-hamburger::before,
+.icon-hamburger::after {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: white;
+  border-radius: 1px;
+  transition: all 0.2s ease-in-out;
+}
+
+.icon-hamburger {
+  position: relative;
+  width: 20px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-hamburger::before {
+  position: absolute;
+  top: 0;
+}
+
+.icon-hamburger::after {
+  position: absolute;
+  bottom: 0;
+}
+
+/* Left Arrow Icon (for collapsing sidebar) */
+.icon-arrow-left,
+.icon-arrow-left::before,
+.icon-arrow-left::after {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 2px;
+  background-color: white;
+  border-radius: 1px;
+  position: absolute;
+  transition: all 0.2s ease-in-out;
+}
+
+.icon-arrow-left {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-arrow-left::before {
+    left: 4px;
+    transform: rotate(45deg);
+    top: 6px;
+}
+
+.icon-arrow-left::after {
+    left: 4px;
+    transform: rotate(-45deg);
+    bottom: 6px;
+}
+
+/* Right Arrow Icon (for expanding sidebar) */
+.icon-arrow-right,
+.icon-arrow-right::before,
+.icon-arrow-right::after {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 2px;
+  background-color: white;
+  border-radius: 1px;
+  position: absolute;
+  transition: all 0.2s ease-in-out;
+}
+
+.icon-arrow-right {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-arrow-right::before {
+    right: 4px; /* Position relative to the center */
+    transform: rotate(-45deg);
+    top: 6px;
+}
+
+.icon-arrow-right::after {
+    right: 4px; /* Position relative to the center */
+    transform: rotate(45deg);
+    bottom: 6px;
+}
+
+
+/* --- Preview Mode Styles (Unchanged from your provided CSS, but included for completeness) --- */
 .preview-container {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
-  padding: 1rem;
-}
-
-.input-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  max-width: 600px;
+  margin: 20px auto;
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 1.125rem; /* 18px */
-  outline: none;
-  box-sizing: border-box;
-  transition: box-shadow 0.2s ease;
+  background-color: var(--bg-white);
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--playful-border-light); /* Playful border */
 }
 
-
-
-/* Preview header */
 .preview-header {
-  margin-bottom: 1rem;
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .preview-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 1.8rem;
+  color: var(--text-dark);
 }
 
-/* Chat window */
 .chat-window {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: 24rem; /* fixed height */
-  border: 1px solid #d1d5db; /* gray-300 */
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   overflow: hidden;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
 }
 
-/* Messages container */
 .chat-messages {
   flex: 1;
-  padding: 1rem;
+  padding: 15px;
   overflow-y: auto;
-  background-color: #fafafa;
+  background-color: var(--bg-chat-light);
+  display: flex;
+  flex-direction: column;
 }
 
-/* Chat messages */
 .chat-message {
-  margin-bottom: 0.5rem;
+  margin-bottom: 10px;
   display: flex;
 }
 
@@ -127,303 +347,650 @@
   justify-content: flex-end;
 }
 
-.chat-message-bot {
-  justify-content: flex-start;
-}
-
-/* Chat bubble */
 .chat-bubble {
+  padding: 10px 15px;
+  border-radius: 18px;
   max-width: 70%;
-  padding: 0.5rem 1rem;
-  border-radius: 16px;
-  display: inline-block;
-  word-wrap: break-word;
-  font-size: 0.95rem;
+  word-break: break-word;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .chat-message-user .chat-bubble {
-  background-color: #3b82f6; /* blue-500 */
+  background-color: var(--primary-blue);
   color: white;
-  border-bottom-right-radius: 4px;
-  border-bottom-left-radius: 16px;
-  border-top-right-radius: 16px;
-  border-top-left-radius: 16px;
 }
 
 .chat-message-bot .chat-bubble {
-  background-color: #e5e7eb; /* gray-200 */
-  color: #374151; /* gray-800 */
-  border-bottom-left-radius: 4px;
-  border-bottom-right-radius: 16px;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
+  background-color: #e0e0e0;
+  color: var(--text-dark);
 }
 
-/* Chat input area */
 .chat-input-container {
   display: flex;
-  border-top: 1px solid #d1d5db;
-  padding: 0.5rem;
-  background-color: #fff;
+  padding: 10px;
+  background-color: var(--bg-white);
+  border-top: 1px solid var(--border-default);
   align-items: center;
 }
 
-/* Input field */
 .chat-input {
-  flex-grow: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-right: none;
-  border-radius: 8px 0 0 8px;
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 20px;
+  margin-right: 10px;
   font-size: 1rem;
-  outline: none;
-  transition: box-shadow 0.2s ease;
 }
 
-.chat-input:focus {
-  box-shadow: 0 0 0 3px #3b82f6;
-  border-color: #3b82f6;
-}
-
-/* Send button */
 .chat-send-btn {
-  padding: 0.5rem 1rem;
-  background-color: #3b82f6;
+  padding: 10px 20px;
+  background-color: var(--primary-blue);
   color: white;
   border: none;
-  border-radius: 0 8px 8px 0;
-  font-weight: 600;
+  border-radius: 20px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  font-weight: bold;
+  transition: background-color 0.2s ease-in-out;
 }
 
 .chat-send-btn:hover {
-  background-color: #2563eb;
+  background-color: #1976D2;
 }
 
-
-/* Container grid */
-.grid-container {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem; /* ~6 */
-  padding: 1rem;
-}
-
-@media (min-width: 1024px) {
-  .grid-container {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-/* Card style common */
-.card {
-  background: #fff;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
-  border-radius: 0.5rem; /* 8px */
-  padding: 1rem;
-}
-
-/* Chatbot Settings spans 1 column on large */
-.chatbot-settings {
-  grid-column: span 1;
-}
-
-/* Typography */
-h2 {
-  font-size: 1.25rem; /* 20px */
-  font-weight: 600;
-  color: #2d3748; /* gray-800 */
-  margin-bottom: 1rem;
-}
-
-/* Labels */
-label {
-  display: block;
-  color: #4a5568; /* gray-700 */
-  margin-bottom: 0.25rem;
-  font-weight: 500;
-}
-
-/* Input & Textarea styles */
-.input-box,
-input[type="text"],
-textarea {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #cbd5e0; /* gray-300 */
-  border-radius: 0.375rem; /* 6px */
-  font-size: 1rem;
-  font-family: inherit;
-  box-sizing: border-box;
-  transition: border-color 0.2s ease;
-}
-
-.input-box:hover,
-input[type="text"]:hover,
-textarea:hover {
-  border-color: #a0aec0; /* gray-400 */
-}
-
-.input-box:focus,
-input[type="text"]:focus,
-textarea:focus {
-  outline: none;
-  border-color: #4299e1; /* blue-500 */
-  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.6);
-}
-
-/* Space between stacked elements */
-.space-y-4 > * + * {
-  margin-top: 1rem;
-}
-
-.space-y-2 > * + * {
-  margin-top: 0.5rem;
-}
-
-/* Rules List header */
-.rules-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-/* Add Rule button (reuse input-box style) */
-.rules-header button {
-  cursor: pointer;
-  padding: 0.5rem 1rem;
-  font-weight: 500;
-  background-color: #e2e8f0; /* gray-200 */
-  border: 1px solid #cbd5e0;
-  border-radius: 0.375rem;
-  transition: background-color 0.2s ease;
-}
-
-.rules-header button:hover {
-  background-color: #cbd5e0; /* gray-300 */
-}
-
-/* Rule item */
-.rule-item {
-  border: 1px solid #e2e8f0; /* gray-200 */
-  border-radius: 0.375rem;
-  padding: 0.75rem;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.rule-item:hover {
-  border-color: #63b3ed; /* blue-400 */
-  background-color: #ebf8ff; /* blue-50 */
-}
-
-/* Active rule */
-.rule-item.active {
-  border-color: #4299e1; /* blue-500 */
-  background-color: #ebf8ff; /* blue-50 */
-}
-
-/* Truncate long text */
-.truncate {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+/* --- Flow Builder Styles --- */
+.flow-builder-container {
   flex: 1;
+  display: grid; /* Changed from flex to grid */
+  /* Default: Sidebar (280px), then Canvas (1fr) */
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem; /* Increased gap */
+  height: calc(100vh - 80px); /* Adjusted for header height (approx 60px + some margin) */
+  transition: grid-template-columns 0.3s ease-in-out;
+  padding: 1.5rem; /* Padding for the entire builder container */
+}
+
+/* State when sidebar is collapsed */
+.flow-builder-container.sidebar-collapsed {
+  /* When collapsed: Sidebar-toggle-bar (50px), then Canvas (1fr) */
+  grid-template-columns: 50px 1fr;
+}
+
+/* --- Sidebar (Updated for conditional rendering) --- */
+.sidebar {
+  background-color: var(--bg-white); /* White background for sidebar content */
+  border-radius: 12px; /* More rounded */
+  box-shadow: 0 4px 15px var(--playful-shadow-light);
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: auto; /* Let grid handle width when it's present */
+  flex-shrink: 0;
+  border: 1px solid var(--playful-border-light); /* Playful border */
+  transition: all 0.3s ease;
+}
+
+.sidebar:hover {
+    box-shadow: 0 6px 20px rgba(92, 107, 192, 0.1); /* Playful shadow on hover */
+    border-color: var(--playful-light-purple);
+}
+
+/* Container for the 'Show Sidebar' button when sidebar is collapsed */
+.sidebar-toggle-bar {
+    width: 50px; /* A fixed width for the collapsed column */
+    background-color: var(--bg-white); /* White background */
+    border-radius: 12px;
+    box-shadow: 0 4px 15px var(--playful-shadow-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start; /* Place button at the top of this bar */
+    padding-top: 1.5rem;
+    height: 100%;
+    border: 1px solid var(--playful-border-light);
+    transition: all 0.3s ease;
+}
+
+.sidebar-toggle-bar:hover {
+    box-shadow: 0 6px 20px rgba(92, 107, 192, 0.1);
+    border-color: var(--playful-light-purple);
+}
+
+
+.sidebar-section {
+  background-color: var(--bg-white); /* Ensure sections have white background */
+  padding: 15px;
+  border-radius: 8px; /* Slightly more rounded */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); /* Softer shadow */
+  border: 1px solid #ebf2fa; /* Very light subtle border */
+}
+
+.sidebar-section h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.15rem; /* Slightly larger */
+  color: var(--text-dark);
+  border-bottom: 1px solid var(--playful-border-light); /* Playful border */
+  padding-bottom: 8px;
+  font-weight: 600;
+}
+
+.setting-item {
+  margin-bottom: 12px; /* Slightly more space */
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem; /* Slightly larger */
+  color: var(--text-medium);
   font-weight: 500;
 }
 
-/* Buttons inside rule item */
-.rule-buttons button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0 0.25rem;
-  font-size: 1.25rem;
-  color: #718096; /* gray-600 */
-  transition: color 0.2s ease;
-}
-
-.rule-buttons button:hover:not(:disabled) {
-  color: #2d3748; /* gray-800 */
-}
-
-.rule-buttons button:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
-/* Delete button red */
-.rule-buttons button.delete {
-  color: #e53e3e; /* red-600 */
-}
-
-.rule-buttons button.delete:hover {
-  color: #9b2c2c; /* red-800 */
-}
-
-/* Text-center message */
-.text-center {
-  text-align: center;
-  color: #a0aec0; /* gray-500 */
-  padding: 2rem 0;
-  font-style: italic;
-}
-
-/* Rule editor */
-.rule-editor label {
-  color: #4a5568;
-  margin-bottom: 0.25rem;
-  font-weight: 500;
-}
-
-.rule-editor input[type="text"],
-.rule-editor textarea {
+.input-box {
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #cbd5e0;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  font-family: inherit;
+  padding: 9px 12px; /* More padding */
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-size: 0.95rem; /* Slightly larger */
   box-sizing: border-box;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  background-color: #fcfdff; /* Very light playful background */
+  color: var(--text-dark);
 }
 
-.rule-editor input[type="text"]:focus,
-.rule-editor textarea:focus {
+.input-box:focus {
   outline: none;
-  border-color: #4299e1;
-  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.6);
+  border-color: var(--playful-purple); /* Playful accent on focus */
+  box-shadow: 0 0 0 3px rgba(92, 107, 192, 0.2); /* Playful shadow on focus */
+  background-color: #f7f9ff; /* Subtle background change on focus */
 }
 
-/* Checkbox label inline */
-.checkbox-label {
+textarea.input-box { /* Specific styles for textareas */
+    min-height: 90px;
+    resize: vertical;
+}
+
+.node-types {
+  display: grid; /* Changed to grid for better control */
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px; /* Slightly increased gap */
+}
+
+.node-type-item {
+  padding: 10px 8px; /* More padding */
+  border-radius: 8px; /* More rounded */
+  color: white;
+  font-size: 13px; /* Slightly larger text */
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2); /* For better contrast on gradients */
+  border: 1px solid rgba(255,255,255,0.4); /* Subtle white border */
+}
+
+.node-type-item:hover {
+  transform: translateY(-3px); /* More pronounced lift */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  opacity: 0.9; /* Slight opacity change on hover */
+}
+
+/* Node Type Colors (from image_42b94e.png - as you provided them) */
+/* Changed .node-type-multi-choice to .node-type-multichoice to match typical naming */
+.node-type-item.node-type-start {
+  background: linear-gradient(145deg, #d3e9c7 0%, #aed68d 100%); /* Soft Mint Green */
+}
+
+.node-type-item.node-type-message {
+  background: linear-gradient(145deg, #c2e0f0 0%, #a9d4e5 100%); /* Sky Blue */
+}
+
+.node-type-item.node-type-multichoice { /* Corrected name */
+  background: linear-gradient(145deg, #f0c2e0 0%, #e0a9d4 100%); /* Lavender Pink */
+}
+
+.node-type-item.node-type-button {
+  background: linear-gradient(145deg, #ffd9b3 0%, #fbc281 100%); /* Peach Orange */
+}
+
+.node-type-item.node-type-textinput { /* Corrected name */
+  background: linear-gradient(145deg, #e0d1e0 0%, #ccbccb 100%); /* Gentle Lilac */
+}
+
+.node-type-item.node-type-rating {
+  background: linear-gradient(145deg, #ffe0b3 0%, #fbd49f 100%); /* Muted Yellow */
+}
+
+
+/* Node Properties within sidebar */
+.node-option-item {
   display: flex;
   align-items: center;
-  color: #4a5568;
-  margin-top: 0.5rem;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  background-color: #f2f4f7; /* Lighter playful grey background */
+  padding: 0.7rem;
+  border-radius: 8px; /* More rounded */
+  border: 1px solid #e7eaf0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05); /* Inner shadow for depth */
 }
 
-.checkbox-label input[type="checkbox"] {
-  margin-right: 0.5rem;
+.node-option-item input {
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  border-radius: 6px;
+}
+
+.btn-delete-option {
+  background-color: var(--accent-red);
+  color: white;
+  min-width: 35px;
+  height: 35px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+.btn-delete-option:hover {
+  background-color: #c82333;
+  transform: scale(1.05);
+}
+
+.btn-add-option {
+  background-color: var(--playful-purple); /* Playful accent */
+  color: white;
+  margin-top: 1.2rem;
+  width: 100%;
+  padding: 0.8rem 1.2rem;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(92, 107, 192, 0.2);
+}
+.btn-add-option:hover {
+  background-color: var(--playful-light-purple); /* Playful hover color */
+}
+
+
+/* AI Toggle */
+.setting-item.ai-toggle-section {
+  border-top: 1px solid var(--playful-border-light);
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.95rem;
+  color: var(--text-medium);
+}
+
+.ai-toggle-section input[type="checkbox"] {
+  width: 18px; /* Slightly larger checkbox */
+  height: 18px;
+  accent-color: var(--playful-purple); /* Playful accent */
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* --- Flow Canvas --- */
+.flow-canvas-container {
+  flex: 1;
+  position: relative;
+  background-color: var(--bg-white); /* White background */
+  border-radius: 12px; /* More rounded */
+  box-shadow: 0 4px 15px var(--playful-shadow-light);
+  overflow: hidden; /* Hide scrollbars */
+  border: 1px solid var(--playful-border-light); /* Playful border */
+  transition: all 0.3s ease;
+}
+
+.flow-canvas-container:hover {
+    box-shadow: 0 6px 20px rgba(92, 107, 192, 0.1);
+    border-color: var(--playful-light-purple);
+}
+
+.flow-canvas-tools {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: rgba(255, 255, 255, 0.95); /* Slightly less opaque */
+  padding: 10px 15px; /* More padding */
+  border-radius: 8px; /* More rounded */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 20;
+  border: 1px solid var(--playful-border-light); /* Playful border */
+}
+
+.zoom-btn {
+  background-color: #eff2f5; /* Light grey */
+  border: 1px solid #d9e0e8;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  color: var(--text-medium);
+  width: 38px; /* Slightly larger */
+  height: 38px;
+  font-size: 1.2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.zoom-btn:hover {
+  background-color: #e0e6ec;
+  border-color: var(--playful-purple); /* Playful border on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.flow-canvas-tools span {
+  font-weight: 500;
+  color: var(--text-light);
+  font-size: 0.95rem;
+  min-width: 45px;
+  text-align: center;
+}
+
+.flow-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Canvas container handles overflow, not the background grid */
+  cursor: grab;
+  /* Very subtle grid, almost invisible unless zoomed in */
+  background-image:
+    linear-gradient(to right, #e8e8e8 1px, transparent 1px), /* Lighter grid lines */
+    linear-gradient(to bottom, #e8e8e8 1px, transparent 1px);
+  background-size: 20px 20px; /* Your existing grid size */
+}
+
+.flow-canvas:active {
+  cursor: grabbing;
+}
+
+.canvas-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3000px;
+  height: 2000px;
+  transform-origin: 0 0;
+}
+
+.connections-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.connections-layer path {
+  stroke: #adb5bd; /* Muted grey connection lines */
+  stroke-width: 2px;
+  fill: none;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+  pointer-events: all;
+}
+
+.connections-layer path:hover {
+  stroke: var(--playful-purple); /* Playful accent on hover */
+  stroke-width: 3px;
   cursor: pointer;
 }
 
-.typing-animation {
-    display: flex;
-    margin-left: 8px;
+.connections-layer circle {
+  fill: var(--playful-purple); /* Fill connection points with playful accent */
+  pointer-events: none;
+}
+
+
+/* --- Flow Node Styles --- */
+.flow-node {
+  position: absolute;
+  width: 220px; /* Slightly wider standard node width */
+  min-height: 85px; /* Slightly taller */
+  background-color: var(--bg-white); /* Default white background for nodes */
+  border-radius: 12px; /* More rounded nodes */
+  box-shadow: 0 4px 15px var(--playful-shadow-light);
+  border: 1px solid var(--playful-border-light); /* Playful border */
+  cursor: grab;
+  transition: box-shadow 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Node type specific colors for the actual nodes (FROM YOUR PROVIDED CSS) */
+/* Re-applying the gradients here for the nodes themselves, ensures consistency */
+.flow-node.flow-node-start {
+    background: linear-gradient(145deg, #d3e9c7 0%, #aed68d 100%);
+    color: #333; /* Text on light green node */
+}
+.flow-node.flow-node-message {
+    background: linear-gradient(145deg, #c2e0f0 0%, #a9d4e5 100%);
+    color: #333; /* Text on light blue node */
+}
+.flow-node.flow-node-multichoice { /* Corrected name */
+    background: linear-gradient(145deg, #f0c2e0 0%, #e0a9d4 100%);
+    color: #333; /* Text on light pink node */
+}
+.flow-node.flow-node-button {
+    background: linear-gradient(145deg, #ffd9b3 0%, #fbc281 100%);
+    color: #333; /* Text on light orange node */
+}
+.flow-node.flow-node-textinput { /* Corrected name */
+    background: linear-gradient(145deg, #e0d1e0 0%, #ccbccb 100%);
+    color: #333; /* Text on light lilac node */
+}
+.flow-node.flow-node-rating {
+    background: linear-gradient(145deg, #ffe0b3 0%, #fbd49f 100%);
+    color: #333; /* Text on light yellow node */
+}
+
+/* Adjust header/content text for lighter node backgrounds */
+.flow-node.flow-node-start .flow-node-header,
+.flow-node.flow-node-message .flow-node-header,
+.flow-node.flow-node-multichoice .flow-node-header,
+.flow-node.flow-node-button .flow-node-header,
+.flow-node.flow-node-textinput .flow-node-header,
+.flow-node.flow-node-rating .flow-node-header {
+    background-color: rgba(0, 0, 0, 0.08); /* Slightly darker header on vibrant nodes */
+    color: var(--text-dark); /* Keep dark text */
+    text-shadow: none; /* Remove dark text shadow on light backgrounds */
+}
+
+.flow-node.flow-node-start .flow-node-content,
+.flow-node.flow-node-message .flow-node-content,
+.flow-node.flow-node-multichoice .flow-node-content,
+.flow-node.flow-node-button .flow-node-content,
+.flow-node.flow-node-textinput .flow-node-content,
+.flow-node.flow-node-rating .flow-node-content {
+    color: var(--text-dark); /* Keep dark text for content */
+}
+
+/* Adjust option display background for lighter node backgrounds */
+.flow-node.flow-node-start .node-option-item-display,
+.flow-node.flow-node-message .node-option-item-display,
+.flow-node.flow-node-multichoice .node-option-item-display,
+.flow-node.flow-node-button .node-option-item-display,
+.flow-node.flow-node-textinput .node-option-item-display,
+.flow-node.flow-node-rating .node-option-item-display {
+    background-color: rgba(0, 0, 0, 0.05); /* Very subtle overlay */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--text-medium); /* Keep dark text */
+    text-shadow: none;
+}
+
+
+.flow-node.selected {
+  box-shadow: 0 0 0 3px var(--playful-purple), 0 6px 16px rgba(0, 0, 0, 0.2); /* Playful purple selection */
+  z-index: 11;
+}
+
+.flow-node:active {
+  cursor: grabbing;
+  transform: translateY(1px);
+}
+
+.flow-node-header {
+  padding: 10px 15px; /* More padding */
+  font-weight: 600;
+  font-size: 1rem;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  color: var(--text-dark);
+  background-color: var(--bg-white); /* Default header for non-colored nodes */
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.flow-node-input {
+  position: absolute;
+  left: -10px; /* Adjusted for larger points */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px; /* Larger hit area */
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.input-point {
+  width: 12px; /* Larger point */
+  height: 12px;
+  background-color: var(--playful-purple); /* Playful accent */
+  border-radius: 50%;
+  border: 2px solid var(--bg-white); /* White border for pop */
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.flow-node-content {
+  padding: 12px 15px; /* More padding */
+  background-color: var(--bg-white); /* Default white background */
+  color: var(--text-dark);
+  min-height: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3; /* Allow more lines */
+  -webkit-box-orient: vertical;
+  font-size: 0.95rem; /* Slightly larger */
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.flow-node-outputs {
+  position: absolute;
+  right: -10px; /* Adjusted for larger points */
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem; /* Gap between multiple outputs */
+}
+
+.output-point {
+  width: 14px; /* Larger point */
+  height: 14px;
+  background-color: var(--playful-purple); /* Playful accent */
+  border-radius: 50%;
+  border: 2px solid var(--bg-white);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  cursor: crosshair;
+  transition: background-color 0.2s ease, transform 0.15s ease;
+  z-index: 2;
+}
+
+.output-point:hover {
+  background-color: var(--playful-light-purple); /* Playful hover color */
+  transform: scale(1.15);
+}
+
+.output-point:active {
+  transform: scale(0.95);
+}
+
+.node-options-display {
+  padding: 0.8rem 0 0.6rem; /* Adjusted padding within content */
+  /* border-top: 1px solid #f0f0f0; */ /* Removed this specific border, let the node content manage */
+  margin-top: 0.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.node-option-item-display {
+  background-color: #e9eff5; /* Lighter playful grey */
+  border: 1px solid #dce4ed;
+  color: var(--text-medium);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.flow-node-type {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.1); /* Slightly darker on general nodes */
+  color: #a0aec0;
+  font-size: 0.7rem; /* Slightly smaller */
+  font-weight: 500;
+  padding: 0.3rem 0.8rem;
+  border-top-right-radius: 8px;
+  border-bottom-left-radius: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  z-index: 0;
+}
+
+/* Node type specific background for the type label */
+.flow-node.flow-node-start .flow-node-type,
+.flow-node.flow-node-message .flow-node-type,
+.flow-node.flow-node-multichoice .flow-node-type,
+.flow-node.flow-node-button .flow-node-type,
+.flow-node.flow-node-textinput .flow-node-type,
+.flow-node.flow-node-rating .flow-node-type {
+    background-color: rgba(0, 0, 0, 0.18); /* Slightly darker on colored nodes for contrast */
+    color: rgba(255, 255, 255, 0.85); /* White text on darker label */
+}
+
+
+/* --- Typing Animation (from previous CSS) --- */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 18px;
+  background-color: #e9ecef;
+  width: fit-content;
+  min-width: 45px;
+  margin-left: 8px;
 }
 
 .typing-dot {
-    width: 8px;
-    height: 8px;
-    background: #666; /* Or any color that fits your design */
-    border-radius: 50%;
-    margin: 0 2px;
-    animation: typingAnimation 1.4s infinite ease-in-out;
+  width: 7px;
+  height: 7px;
+  background: #666;
+  border-radius: 50%;
+  margin: 0 2px;
+  animation: typingAnimation 1.4s infinite ease-in-out;
 }
 
 .typing-dot:nth-child(1) { animation-delay: 0s; }
@@ -431,21 +998,103 @@ textarea:focus {
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes typingAnimation {
-    0%, 80%, 100% {
-        transform: translateY(0);
-        opacity: 0.8;
-    }
-    40% {
-        transform: translateY(-4px);
-        opacity: 1;
-    }
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
 }
 
-/* Optional: Style for the typing indicator within the chat bubble */
-.chat-message-bot .typing-indicator {
-    display: flex;
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 18px;
-    background-color: #e0e0e0; /* A subtle background for the typing bubble */
+/* --- Utility Classes --- */
+.text-center {
+  text-align: center;
+  color: var(--text-light);
+  padding: 2.5rem 0;
+  font-style: italic;
+  font-size: 1.05rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  color: var(--text-medium);
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-right: 0.7rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+  accent-color: var(--playful-purple); /* Playful accent for checkbox */
+}
+
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 10px;
+  }
+
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .app-title {
+    font-size: 1.5rem;
+  }
+
+  .header-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 10px;
+  }
+
+  .flow-builder-container {
+    flex-direction: column;
+    grid-template-columns: 1fr; /* Stack on small screens */
+    height: auto; /* Allow height to adjust */
+    padding: 1rem; /* Adjust padding for small screens */
+    gap: 1rem;
+  }
+
+  .sidebar, .sidebar-toggle-bar {
+    width: 100%;
+    max-height: 300px; /* Limit sidebar height on small screens */
+    border-right: none;
+    border-bottom: 1px solid var(--border-default);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    border-radius: 8px; /* Maintain rounded corners */
+  }
+
+  .sidebar-toggle-bar { /* Ensure padding and center for mobile */
+      padding: 1rem;
+      flex-direction: row; /* Horizontal for compact toggle bar */
+      justify-content: center;
+      align-items: center;
+  }
+  .sidebar-toggle-bar .btn-toggle {
+      margin-bottom: 0;
+  }
+
+
+  .flow-canvas-tools {
+    top: auto;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+    padding: 8px 12px;
+  }
 }

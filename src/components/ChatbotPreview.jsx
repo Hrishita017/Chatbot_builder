@@ -1,4 +1,3 @@
-
 import { React, useState, useEffect, useRef } from 'react';
 import './ChatbotPreview.css';
 import ReactDOM from 'react-dom/client';
@@ -37,7 +36,7 @@ window.MyChatbotWidget = {
   init: renderChatbotWidget,
 };
 
-export const getAIResponse = async (userMessage) => { // Removed : string
+export const getAIResponse = async (userMessage) => {
   try {
     console.log('Sending request to Groq API...');
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -60,7 +59,6 @@ export const getAIResponse = async (userMessage) => { // Removed : string
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`API Error (${response.status}):`, errorText);
-      // Removed : string from return type
       return `API Error (${response.status}): Please check your API key and settings.`;
     }
 
@@ -76,20 +74,24 @@ export const getAIResponse = async (userMessage) => { // Removed : string
     aiResponse = aiResponse.replace(/^\* /gm, '• ');
     aiResponse = aiResponse.replace("* ", "• ")
     return aiResponse;
-  } catch (error) { // Removed : any
+  } catch (error) {
     console.error("GROQ API error:", error);
     return `API Error: ${error.message || "Unknown error occurred"}`;
   }
 };
+
 const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, connections }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [userMessage, setUserMessage] = useState('');
-  const [currentNodeId, setCurrentNodeId] = useState(null); // To track the current node in the flow
+  const [currentNodeId, setCurrentNodeId] = useState(null);
+  const [showRating, setShowRating] = useState(false);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState('');
   const chatAreaRef = useRef(null);
 
-  
   useEffect(() => {
     const chatIcon = document.getElementById("chatIcon");
     if (chatIcon) {
@@ -101,10 +103,10 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
   }, []);
 
   useEffect(() => {
-    if (chatAreaRef.current) {
+    if (chatAreaRef.current && !showRating) {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
-  }, [conversation]);
+  }, [conversation, showRating]);
 
   const openChatContainer = () => {
     setIsChatOpen(true);
@@ -117,7 +119,11 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
     setIsChatOpen(false);
     setChatStarted(false);
     setConversation([]);
-    setCurrentNodeId(null); // Reset current node
+    setCurrentNodeId(null);
+    setShowRating(false);
+    setRatingSubmitted(false);
+    setSelectedRating(0);
+    setRatingMessage('');
   };
 
   const startConversationHandler = () => {
@@ -190,7 +196,7 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
     if (nextNode) {
       setCurrentNodeId(nextNode.id);
       processNode(nextNode, message);
-    } else if (!aiResponse) { // Only show fallback if AI didn't respond and no next node was found
+    } else if (!aiResponse) { 
       addBotMessage(fallbackMessage || "I'm sorry, I didn't understand that. Can you please rephrase?");
     }
   };
@@ -223,6 +229,11 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
       case 'textinput':
         inputRequired = true;
         addBotMessage(messageContent, false, [], inputRequired);
+        break;
+      case 'rating':
+        // Show the rating bubble interface
+        setRatingMessage(messageContent);
+        setShowRating(true);
         break;
       case 'end':
         addBotMessage(messageContent);
@@ -261,6 +272,55 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
     }
   };
 
+  const handleStarClick = (rating) => {
+    setSelectedRating(rating);
+  };
+
+  const submitRating = () => {
+    setRatingSubmitted(true);
+    // You can add code here to save the rating to your backend
+    console.log('User rated:', selectedRating, 'stars');
+  };
+
+  // New function to skip rating and continue
+  const skipRating = () => {
+    setShowRating(false);
+    // Find the next node after the rating node and continue the flow
+    const ratingNode = nodes.find(node => node.id === currentNodeId);
+    if (ratingNode) {
+      const nextConnection = connections.find(conn => conn.sourceId === ratingNode.id);
+      if (nextConnection) {
+        const nextNode = nodes.find(node => node.id === nextConnection.targetId);
+        if (nextNode) {
+          setCurrentNodeId(nextNode.id);
+          processNode(nextNode);
+        }
+      }
+    }
+  };
+
+  // New function to close rating dialog
+  const closeRating = () => {
+    setShowRating(false);
+    setSelectedRating(0);
+    setRatingSubmitted(false);
+    setRatingMessage('');
+    // Continue to the next node without rating
+    skipRating();
+  };
+
+  const handleChatAgain = () => {
+    // Reset all states and restart the chat
+    setShowRating(false);
+    setRatingSubmitted(false);
+    setSelectedRating(0);
+    setRatingMessage('');
+    setConversation([]);
+    setCurrentNodeId(null);
+    setChatStarted(false);
+    startConversationHandler();
+  };
+
   return (
     <>
       <button id="chatIcon" className="pulse-animation" onClick={openChatContainer}>
@@ -278,6 +338,64 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
           <span id="minimizeIcon" onClick={closeChatContainer}>✖</span>
           <span id="clearIcon" onClick={() => setConversation([])}>🧹</span>
 
+          {/* Rating Bubble Interface */}
+          {showRating && (
+            <div className="rating-overlay">
+              <div className="rating-bubble">
+                {/* Close button for rating dialog */}
+                <button className="rating-close-btn" onClick={closeRating} aria-label="Close rating">
+                  ✖
+                </button>
+                
+                {!ratingSubmitted ? (
+                  <>
+                    <h3>Rate Your Experience</h3>
+                    <p>{ratingMessage}</p>
+                    <div className="star-rating">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          className={`star ${star <= selectedRating ? 'selected' : ''}`}
+                          onClick={() => handleStarClick(star)}
+                          aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                    <div className="rating-buttons">
+                      <button className="rating-btn submit-btn" onClick={submitRating}>
+                        Submit Rating
+                      </button>
+                      <button className="rating-btn skip-btn" onClick={skipRating}>
+                        Skip Rating
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="thank-you-message">
+                      <h3>Thank You!</h3>
+                      <p>We appreciate your feedback.</p>
+                      {selectedRating > 0 && (
+                        <div className="rating-display">
+                          You rated us: {[...Array(selectedRating)].map((_, i) => (
+                            <span key={i} className="star selected">★</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="rating-buttons">
+                      <button className="rating-btn chat-again-btn" onClick={handleChatAgain}>
+                        Chat Again
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {!chatStarted ? (
             <>
               <p id="chatDescription">{welcomeMessage || 'Welcome to our support chat! How can we help with your ERP system questions today?'}</p>
@@ -285,7 +403,7 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
             </>
           ) : (
             <>
-              <div id="chatArea" className="open" ref={chatAreaRef}>
+              <div id="chatArea" className={`open ${showRating ? 'blurred' : ''}`} ref={chatAreaRef}>
                 {conversation.map((msg, index) => (
                   <div key={index} className={msg.sender}>
                     {msg.sender === 'status' ? (
@@ -306,7 +424,7 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
                             key={optIndex}
                             className="predefined-btn"
                             onClick={() => handleOptionClick(option.value)}
-                            disabled={index !== conversation.length - 1 || conversation[conversation.length - 1]?.inputRequired}
+                            disabled={index !== conversation.length - 1 || conversation[conversation.length - 1]?.inputRequired || showRating}
                           >
                             {option.label}
                           </button>
@@ -317,7 +435,7 @@ const ChatbotPreview = ({ botName, welcomeMessage, fallbackMessage, nodes, conne
                 ))}
               </div>
 
-              <div id="inputBox" style={{ display: 'flex' }}>
+              <div id="inputBox" style={{ display: showRating ? 'none' : 'flex' }}>
                 <input
                   id="textInput"
                   type="text"
