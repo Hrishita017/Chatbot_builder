@@ -1,0 +1,956 @@
+import { useState, useEffect, useRef } from 'react';
+
+export default function VisualFlowChatbotBuilder() {
+  // State variables
+  const [botName, setBotName] = useState("My Chatbot");
+  const [welcomeMessage, setWelcomeMessage] = useState("Hi there! How can I help you today?");
+  const [fallbackMessage, setFallbackMessage] = useState("I'm sorry, I didn't understand that. Could you rephrase?");
+  const [rules, setRules] = useState([]);
+  const [editingRule, setEditingRule] = useState(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [userMessage, setUserMessage] = useState("");
+  const [conversation, setConversation] = useState([]);
+
+  // Flow builder states
+  const [nodes, setNodes] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [selectedNode, setSelectedNode] = useState(null);
+  const [draggingNode, setDraggingNode] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [creatingConnection, setCreatingConnection] = useState(null);
+  const [availableNodeTypes] = useState([
+    { type: 'start', label: 'Start', color: '#4CAF50' },
+    { type: 'message', label: 'Message', color: '#607D8B' },
+    { type: 'multichoice', label: 'Multi Choice', color: '#2196F3' },
+    { type: 'button', label: 'Button', color: '#9C27B0' },
+    { type: 'textinput', label: 'Text Input', color: '#FF5722' },
+    { type: 'rating', label: 'Rating', color: '#795548' }
+  ]);
+  
+  const canvasRef = useRef(null);
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+
+  // Initialize with a start node
+  useEffect(() => {
+    if (nodes.length === 0) {
+      setNodes([
+        { 
+          id: 'start-1', 
+          type: 'start', 
+          x: 100, 
+          y: 120, 
+          data: { 
+            title: 'Start',
+            content: 'Start your chatbot flow here'
+          },
+          outputs: ['output-1']
+        }
+      ]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      setCanvasOffset({ x: rect.left, y: rect.top });
+    }
+  }, []);
+
+  // Function to generate a unique ID
+  const generateId = (prefix) => {
+    return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  };
+
+  // Function to handle adding a new rule
+  const addRule = () => {
+    const newRule = {
+      id: generateId('rule'),
+      trigger: '',
+      response: '',
+      isExactMatch: false,
+      useAI: false
+    };
+    setRules([...rules, newRule]);
+    setEditingRule(newRule);
+  };
+
+  // Function to update a rule
+  const updateRule = (id, field, value) => {
+    const updatedRules = rules.map(rule => 
+      rule.id === id ? { ...rule, [field]: value } : rule
+    );
+    setRules(updatedRules);
+    setEditingRule(updatedRules.find(rule => rule.id === id));
+  };
+
+  // Function to delete a rule
+  const deleteRule = (id) => {
+    const updatedRules = rules.filter(rule => rule.id !== id);
+    setRules(updatedRules);
+    setEditingRule(null);
+  };
+
+  // Function to move a rule up in the list
+  const moveRuleUp = (index) => {
+    if (index === 0) return;
+    const updatedRules = [...rules];
+    [updatedRules[index - 1], updatedRules[index]] = [updatedRules[index], updatedRules[index - 1]];
+    setRules(updatedRules);
+  };
+
+  // Function to move a rule down in the list
+  const moveRuleDown = (index) => {
+    if (index === rules.length - 1) return;
+    const updatedRules = [...rules];
+    [updatedRules[index], updatedRules[index + 1]] = [updatedRules[index + 1], updatedRules[index]];
+    setRules(updatedRules);
+  };
+
+  // Function to toggle preview mode
+  const togglePreviewMode = () => {
+    if (!isPreviewMode) {
+      // Entering preview mode
+      setConversation([
+        { sender: 'bot', message: welcomeMessage }
+      ]);
+    }
+    setIsPreviewMode(!isPreviewMode);
+  };
+
+  // Function to export the chatbot
+  const exportChatbot = () => {
+    const chatbotData = {
+      botName,
+      welcomeMessage,
+      fallbackMessage,
+      rules,
+      nodes,
+      connections
+    };
+    
+    const dataStr = JSON.stringify(chatbotData, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `${botName.replace(/\s+/g, '-').toLowerCase()}-chatbot.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  };
+
+  // Function to process a user message
+  const processUserMessage = (message) => {
+    if (!message.trim()) return;
+    
+    // Add user message to conversation
+    const updatedConversation = [
+      ...conversation,
+      { sender: 'user', message }
+    ];
+    setConversation(updatedConversation);
+    setUserMessage('');
+    
+    // Find a matching rule
+    let matchedRule = null;
+    for (const rule of rules) {
+      if (rule.isExactMatch) {
+        if (message.toLowerCase() === rule.trigger.toLowerCase()) {
+          matchedRule = rule;
+          break;
+        }
+      } else {
+        if (rule.trigger && message.toLowerCase().includes(rule.trigger.toLowerCase())) {
+          matchedRule = rule;
+          break;
+        }
+      }
+    }
+    
+    // Generate response based on rules
+    setTimeout(() => {
+      let botResponse;
+      
+      if (matchedRule) {
+        if (matchedRule.useAI) {
+          // In a real implementation, this would call an AI API
+          botResponse = `AI would respond to: "${message}" (Using fallback for demo: ${matchedRule.response || "No response configured"})`;
+        } else {
+          botResponse = matchedRule.response;
+        }
+      } else {
+        botResponse = fallbackMessage;
+      }
+      
+      setConversation(prev => [...prev, { sender: 'bot', message: botResponse }]);
+    }, 500);
+  };
+
+  // Flow builder functions
+  const handleCanvasMouseDown = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
+    
+    // Check if we clicked on a node
+    const clickedNode = nodes.find(node => {
+      return (
+        x >= node.x && 
+        x <= node.x + 200 && 
+        y >= node.y && 
+        y <= node.y + 80
+      );
+    });
+    
+    if (clickedNode) {
+      setSelectedNode(clickedNode);
+      setDraggingNode(clickedNode);
+      setDragOffset({ 
+        x: x - clickedNode.x, 
+        y: y - clickedNode.y 
+      });
+    } else {
+      setSelectedNode(null);
+    }
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    if (!draggingNode) {
+      if (creatingConnection) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / zoom;
+        const y = (e.clientY - rect.top) / zoom;
+        
+        setCreatingConnection({
+          ...creatingConnection,
+          endX: x,
+          endY: y
+        });
+      }
+      return;
+    }
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
+    
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === draggingNode.id 
+          ? { ...node, x: x - dragOffset.x, y: y - dragOffset.y } 
+          : node
+      )
+    );
+  };
+
+  const handleCanvasMouseUp = () => {
+    setDraggingNode(null);
+    
+    if (creatingConnection) {
+      // Check if we're over an input point of another node
+      const targetNode = nodes.find(node => {
+        if (node.id === creatingConnection.sourceNodeId) return false;
+        
+        const inputX = node.x;
+        const inputY = node.y + 40;
+        const distance = Math.sqrt(
+          Math.pow(inputX - creatingConnection.endX, 2) + 
+          Math.pow(inputY - creatingConnection.endY, 2)
+        );
+        
+        return distance < 20;
+      });
+      
+      if (targetNode) {
+        setConnections([
+          ...connections,
+          {
+            id: generateId('conn'),
+            sourceId: creatingConnection.sourceNodeId,
+            sourceOutput: creatingConnection.sourceOutput,
+            targetId: targetNode.id
+          }
+        ]);
+      }
+      
+      setCreatingConnection(null);
+    }
+  };
+
+  const startConnection = (nodeId, outputId, e) => {
+    e.stopPropagation();
+    
+    const sourceNode = nodes.find(node => node.id === nodeId);
+    if (!sourceNode) return;
+    
+    const outputX = sourceNode.x + 200;
+    const outputY = sourceNode.y + 40;
+    
+    setCreatingConnection({
+      sourceNodeId: nodeId,
+      sourceOutput: outputId,
+      startX: outputX,
+      startY: outputY,
+      endX: outputX,
+      endY: outputY
+    });
+  };
+
+  const addNewNode = (type) => {
+    const nodeType = availableNodeTypes.find(nt => nt.type === type);
+    
+    if (!nodeType) return;
+
+    let title, content;
+    
+    switch (type) {
+      case 'message':
+        title = 'Welcome card';
+        content = 'Welcome to huyu! How can I help you today?';
+        break;
+      case 'multichoice':
+        title = 'Multi Choice Card';
+        content = 'Hey there! Looking out for the best courses for your educational qualification? I can help!';
+        break;
+      case 'button':
+        title = 'Button Card';
+        content = 'Hey there! Looking out for the best and economic loan plans? I can help.';
+        break;
+      case 'textinput':
+        title = 'Text Input Card';
+        content = 'Admitted';
+        break;
+      case 'rating':
+        title = 'Rating Card';
+        content = 'crazyy';
+        break;
+      default:
+        title = 'New Card';
+        content = 'Card content';
+    }
+    
+    const newNode = {
+      id: generateId(type),
+      type,
+      x: 300,
+      y: 200,
+      data: {
+        title,
+        content
+      },
+      outputs: type !== 'rating' ? ['output-1'] : []
+    };
+    
+    setNodes([...nodes, newNode]);
+    setSelectedNode(newNode);
+  };
+
+  const updateNodeData = (nodeId, field, value) => {
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId 
+          ? { ...node, data: { ...node.data, [field]: value } } 
+          : node
+      )
+    );
+    
+    if (selectedNode && selectedNode.id === nodeId) {
+      setSelectedNode({
+        ...selectedNode,
+        data: { ...selectedNode.data, [field]: value }
+      });
+    }
+  };
+
+  const deleteNode = (nodeId) => {
+    if (nodeId === 'start-1') return; // Prevent deleting start node
+    
+    setNodes(prevNodes => prevNodes.filter(node => node.id !== nodeId));
+    setConnections(prevConnections => 
+      prevConnections.filter(conn => 
+        conn.sourceId !== nodeId && conn.targetId !== nodeId
+      )
+    );
+    
+    if (selectedNode && selectedNode.id === nodeId) {
+      setSelectedNode(null);
+    }
+  };
+  
+  const deleteConnection = (connId) => {
+    setConnections(prevConnections => 
+      prevConnections.filter(conn => conn.id !== connId)
+    );
+  };
+
+  const handleZoomIn = () => {
+    setZoom(prevZoom => Math.min(prevZoom + 0.1, 2));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prevZoom => Math.max(prevZoom - 0.1, 0.5));
+  };
+
+  return (
+    <div className="app-container">
+      <header className="app-header">
+        <div className="header-content">
+          <h1 className="app-title">No-Code Chatbot Builder</h1>
+          <div className="header-buttons">
+            <button
+              onClick={togglePreviewMode}
+              className={`btn btn-toggle ${
+                isPreviewMode ? "btn-toggle-active" : ""
+              }`}
+            >
+              {isPreviewMode ? "Back to Editor" : "Preview Chatbot"}
+            </button>
+            <button onClick={exportChatbot} className="btn btn-export">
+              Export Chatbot
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {isPreviewMode ? (
+        <div className="preview-container">
+          <div className="preview-header">
+            <h2 className="preview-title">{botName} - Preview</h2>
+          </div>
+
+          <div className="chat-window">
+            <div className="chat-messages" id="conversation-container">
+              {conversation.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`chat-message ${
+                    msg.sender === "user" ? "chat-message-user" : "chat-message-bot"
+                  }`}
+                >
+                  <span className="chat-bubble">{msg.message}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="chat-input-container">
+              <input
+                type="text"
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    processUserMessage(userMessage);
+                  }
+                }}
+                placeholder="Type a message..."
+                className="chat-input"
+              />
+              <button
+                onClick={() => processUserMessage(userMessage)}
+                className="chat-send-btn"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flow-builder-container">
+          <div className="sidebar">
+            <div className="sidebar-section">
+              <h3>Chatbot Settings</h3>
+              <div className="setting-item">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={botName}
+                  onChange={(e) => setBotName(e.target.value)}
+                  className="input-box"
+                />
+              </div>
+              <div className="setting-item">
+                <label>Welcome</label>
+                <input
+                  type="text"
+                  value={welcomeMessage}
+                  onChange={(e) => setWelcomeMessage(e.target.value)}
+                  className="input-box"
+                />
+              </div>
+              <div className="setting-item">
+                <label>Fallback</label>
+                <input
+                  type="text"
+                  value={fallbackMessage}
+                  onChange={(e) => setFallbackMessage(e.target.value)}
+                  className="input-box"
+                />
+              </div>
+            </div>
+            
+            <div className="sidebar-section">
+              <h3>Node Types</h3>
+              <div className="node-types">
+                {availableNodeTypes.map(nodeType => (
+                  <div 
+                    key={nodeType.type}
+                    className="node-type-item"
+                    style={{ backgroundColor: nodeType.color }}
+                    onClick={() => addNewNode(nodeType.type)}
+                  >
+                    {nodeType.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {selectedNode && (
+              <div className="sidebar-section">
+                <h3>Node Properties</h3>
+                <div className="setting-item">
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    value={selectedNode.data.title}
+                    onChange={(e) => updateNodeData(selectedNode.id, 'title', e.target.value)}
+                    className="input-box"
+                  />
+                </div>
+                <div className="setting-item">
+                  <label>Content</label>
+                  <textarea
+                    value={selectedNode.data.content}
+                    onChange={(e) => updateNodeData(selectedNode.id, 'content', e.target.value)}
+                    className="input-box"
+                    rows={4}
+                  />
+                </div>
+                {selectedNode.id !== 'start-1' && (
+                  <button 
+                    onClick={() => deleteNode(selectedNode.id)}
+                    className="btn btn-delete"
+                  >
+                    Delete Node
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <div className="flow-canvas-container">
+            <div className="flow-canvas-tools">
+              <button onClick={handleZoomIn} className="zoom-btn">+</button>
+              <span>{Math.round(zoom * 100)}%</span>
+              <button onClick={handleZoomOut} className="zoom-btn">-</button>
+            </div>
+            <div 
+              className="flow-canvas"
+              ref={canvasRef}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              onMouseLeave={handleCanvasMouseUp}
+            >
+              <div className="canvas-content" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+                {/* Render connections */}
+                <svg className="connections-layer" width="100%" height="100%">
+                  {connections.map(conn => {
+                    const sourceNode = nodes.find(n => n.id === conn.sourceId);
+                    const targetNode = nodes.find(n => n.id === conn.targetId);
+                    
+                    if (!sourceNode || !targetNode) return null;
+                    
+                    const startX = sourceNode.x + 200;
+                    const startY = sourceNode.y + 40;
+                    const endX = targetNode.x;
+                    const endY = targetNode.y + 40;
+                    
+                    const controlX1 = startX + 50;
+                    const controlX2 = endX - 50;
+                    
+                    return (
+                      <g key={conn.id}>
+                        <path
+                          d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
+                          fill="none"
+                          stroke="#888"
+                          strokeWidth="2"
+                          onClick={() => deleteConnection(conn.id)}
+                        />
+                        <circle cx={endX} cy={endY} r="5" fill="#888" />
+                      </g>
+                    );
+                  })}
+                  
+                  {creatingConnection && (
+                    <path
+                      d={`M ${creatingConnection.startX} ${creatingConnection.startY} 
+                         C ${creatingConnection.startX + 50} ${creatingConnection.startY}, 
+                           ${creatingConnection.endX - 50} ${creatingConnection.endY}, 
+                           ${creatingConnection.endX} ${creatingConnection.endY}`}
+                      fill="none"
+                      stroke="#888"
+                      strokeWidth="2"
+                      strokeDasharray="5,5"
+                    />
+                  )}
+                </svg>
+                
+                {/* Render nodes */}
+                {nodes.map(node => {
+                  const nodeType = availableNodeTypes.find(nt => nt.type === node.type);
+                  return (
+                    <div
+                      key={node.id}
+                      className={`flow-node ${selectedNode?.id === node.id ? 'selected' : ''}`}
+                      style={{
+                        left: node.x,
+                        top: node.y,
+                        backgroundColor: nodeType?.color || '#ddd'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedNode(node);
+                      }}
+                    >
+                      <div className="flow-node-header">
+                        {node.data.title || 'Unnamed Node'}
+                        
+                        <div className="flow-node-input">
+                          <div className="input-point" />
+                        </div>
+                      </div>
+                      <div className="flow-node-content">
+                        {node.data.content || 'No content'}
+                      </div>
+                      
+                      {node.outputs && node.outputs.length > 0 && (
+                        <div className="flow-node-outputs">
+                          {node.outputs.map(output => (
+                            <div 
+                              key={output} 
+                              className="output-point"
+                              onClick={(e) => startConnection(node.id, output, e)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      
+                      <div className="flow-node-type">
+                        {nodeType?.type.toUpperCase() || 'NODE'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <style jsx>{`
+        .app-container {
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        .app-header {
+          background-color: #333;
+          color: white;
+          padding: 10px 20px;
+        }
+        
+        .header-content {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        
+        .app-title {
+          margin: 0;
+          font-size: 1.5rem;
+        }
+        
+        .header-buttons {
+          display: flex;
+          gap: 10px;
+        }
+        
+        .btn {
+          padding: 8px 16px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: bold;
+        }
+        
+        .btn-toggle {
+          background-color: #555;
+          color: white;
+        }
+        
+        .btn-toggle-active {
+          background-color: #4CAF50;
+        }
+        
+        .btn-export {
+          background-color: #2196F3;
+          color: white;
+        }
+        
+        .btn-delete {
+          background-color: #f44336;
+          color: white;
+          margin-top: 10px;
+        }
+        
+        /* Preview Mode Styles */
+        .preview-container {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          padding: 20px;
+          max-width: 600px;
+          margin: 0 auto;
+          width: 100%;
+        }
+        
+        .preview-header {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        
+        .chat-window {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        
+        .chat-messages {
+          flex: 1;
+          padding: 15px;
+          overflow-y: auto;
+          background-color: #f9f9f9;
+        }
+        
+        .chat-message {
+          margin-bottom: 10px;
+          display: flex;
+        }
+        
+        .chat-message-user {
+          justify-content: flex-end;
+        }
+        
+        .chat-bubble {
+          padding: 10px 15px;
+          border-radius: 18px;
+          max-width: 70%;
+          word-break: break-word;
+        }
+        
+        .chat-message-user .chat-bubble {
+          background-color: #2196F3;
+          color: white;
+        }
+        
+        .chat-message-bot .chat-bubble {
+          background-color: #e0e0e0;
+        }
+        
+        .chat-input-container {
+          display: flex;
+          padding: 10px;
+          background-color: white;
+          border-top: 1px solid #ddd;
+        }
+        
+        .chat-input {
+          flex: 1;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 20px;
+          margin-right: 10px;
+        }
+        
+        .chat-send-btn {
+          padding: 0 15px;
+          background-color: #2196F3;
+          color: white;
+          border: none;
+          border-radius: 20px;
+          cursor: pointer;
+        }
+        
+        /* Flow Builder Styles */
+        .flow-builder-container {
+          flex: 1;
+          display: flex;
+          overflow: hidden;
+        }
+        
+        .sidebar {
+          width: 250px;
+          background-color: #f0f0f0;
+          padding: 15px;
+          overflow-y: auto;
+          border-right: 1px solid #ddd;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        
+        .sidebar-section {
+          background-color: white;
+          padding: 15px;
+          border-radius: 6px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .sidebar-section h3 {
+          margin-top: 0;
+          margin-bottom: 15px;
+          font-size: 16px;
+          color: #333;
+          border-bottom: 1px solid #eee;
+          padding-bottom: 8px;
+        }
+        
+        .setting-item {
+          margin-bottom: 10px;
+        }
+        
+        .setting-item label {
+          display: block;
+          margin-bottom: 5px;
+          font-size: 14px;
+          color: #555;
+        }
+        
+        .input-box {
+          width: 100%;
+          padding: 8px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          font-size: 14px;
+        }
+        
+        .node-types {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        
+        .node-type-item {
+          padding: 8px 12px;
+          border-radius: 4px;
+          color: white;
+          font-size: 12px;
+          cursor: pointer;
+          text-align: center;
+          width: calc(50% - 4px);
+        }
+        
+        .flow-canvas-container {
+          flex: 1;
+          position: relative;
+          background-color: #f8f8f8;
+          background-image: 
+            linear-gradient(rgba(150, 150, 150, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(150, 150, 150, 0.1) 1px, transparent 1px);
+          background-size: 20px 20px;
+          overflow: auto;
+        }
+        
+        .flow-canvas {
+          position: relative;
+          width: 3000px;
+          height: 2000px;
+        }
+        
+        .canvas-content {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+        
+        .connections-layer {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+        }
+        
+        .connections-layer path, .connections-layer circle {
+          pointer-events: auto;
+        }
+        
+        .flow-node {
+          position: absolute;
+          width: 200px;
+          border-radius: 6px;
+          background-color: white;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+          overflow: hidden;
+          cursor: move;
+          z-index: 10;
+        }
+        
+        .flow-node.selected {
+          box-shadow: 0 0 0 2px #2196F3, 0 2px 5px rgba(0,0,0,0.15);
+        }
+        
+        .flow-node-header {
+          padding: 8px 12px;
+          color: white;
+          font-weight: bold;
+          position: relative;
+        }
+        
+        .flow-node-content {
+          padding: 12px;
+          background-color: white;
+          color: #333;
+          height: 40px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+        
+        .flow-node-type {
+          font-size: 10px;
+          padding: 2px 8px;
+          background-color: rgba(0,0,0,
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          

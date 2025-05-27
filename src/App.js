@@ -1,33 +1,12 @@
 // src/App.js
-import React, { useState } from 'react';
+import  { useState } from 'react';
 import ChatbotBuilder from './components/ChatbotBuilder.tsx';
 import CustomChatbot from './components/CustomChatbot.js';
 import './App.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
-
-
+import 'bootstrap/dist/css/bootstrap.min.css'
 function App() {
   const [chatbotConfig, setChatbotConfig] = useState(null);
   const [showBuilder, setShowBuilder] = useState(true);
-
-  const handleConfigImport = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const config = JSON.parse(e.target.result);
-        setChatbotConfig(config);
-        setShowBuilder(false);
-      } catch (error) {
-        alert('Invalid configuration file');
-        console.error('Failed to parse config:', error);
-      }
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="App">
       {showBuilder ? (
@@ -37,7 +16,12 @@ function App() {
               <h1 className="h4 fw-bold">Chatbot Builder Platform</h1>
             </div>
           </div>
-          <ChatbotBuilder />
+          <ChatbotBuilder 
+            onExport={(config) => {
+              setChatbotConfig(config);
+              setShowBuilder(false);
+            }}
+          />
         </>
       ) : (
         <>

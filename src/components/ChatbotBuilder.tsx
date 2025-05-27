@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import './ChatbotBuilder.css'
-
-
+import './style.css'
+import './ChatbotBuilder.css';
+import React, { useState, useEffect, useRef} from 'react';
+import ChatbotPreview from './ChatbotPreview'; 
+   
 interface Rule {
   id: string;
   trigger: string;
@@ -10,241 +11,531 @@ interface Rule {
   useAI: boolean;
 }
 
+interface NodeData {
+  title: string;
+  content: string;
+  options?: { label: string; value: string; nextNodeId?: string }[]; 
+  useAI?: boolean; 
+}
+
+interface Node {
+  id: string;
+  type: 'start' | 'message' | 'multichoice' | 'button' | 'textinput' | 'rating';
+  x: number;
+  y: number;
+  data: NodeData;
+  outputs: string[]; 
+}
+
+interface Connection {
+  id: string;
+  sourceId: string;
+  sourceOutput: string; // Could be 'output-1' or an option value for multi-choice
+  targetId: string;
+}
 
 interface Message {
   sender: string;
   message: string;
-  isTyping?: boolean;  // Added isTyping as optional property
+  isTyping?: boolean; // <-- Added this
+  options?: { label: string; value: string }[];
+  nodeId?: string;
 }
 
-// AI response function
-const getAIResponse = async (userMessage: string): Promise<string> => {
-  try {
-    console.log("Sending request to Groq API...");
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer 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`, 
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemma2-9b-it",
-        messages: [
-          { role: "system", content: "You are a helpful chatbot assistant." },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.7,
-        max_tokens: 150,
-      }),
-    });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API Error (${response.status}):`, errorText);
-      return `API Error (${response.status}): Please check your API key and settings.`;
-    }
-
-    const data = await response.json();
-    console.log("API Response data:", data);
-
-    if (!data.choices || data.choices.length === 0) {
-      console.error("No choices in response:", data);
-      return "Error: The AI service returned an empty response.";
-    }
-    let aiResponse = data.choices[0].message.content.trim();
-    aiResponse = aiResponse.replace(/\*/g, '');
-    aiResponse = aiResponse.replace(/^\* /gm, '• ');
-    aiResponse = aiResponse.replace("* ", "• ")
-    return aiResponse;
-  } catch (error) {
-    console.error("GROQ API error:", error);
-    return `API Error: ${error.message || "Unknown error occurred"}`;
-  }
-};
 
 const ChatbotBuilder = () => {
-
-  const [rules, setRules] = useState<Rule[]>([]);
-  
+  const [rules, setRules] = useState<Rule[]>([]); // This will now be dynamically generated for preview
   const [botName, setBotName] = useState('My Chatbot');
   const [welcomeMessage, setWelcomeMessage] = useState('Hello! How can I help you today?');
-  
-
   const [fallbackMessage, setFallbackMessage] = useState("I'm sorry, I don't understand. Can you please rephrase?");
-
-  const [editingRule, setEditingRule] = useState<Rule | null>(null);
-  
-
   const [isPreviewMode, setIsPreviewMode] = useState(false);
-  
-
   const [conversation, setConversation] = useState<Message[]>([]);
-  
-
-  const [userMessage, setUserMessage] = useState('');
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [draggingNode, setDraggingNode] = useState<Node | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [creatingConnection, setCreatingConnection] = useState<any | null>(null);
+  const [availableNodeTypes] = useState<Array<{ type: Node['type'], label: string, color: string }>>([
+    { type: 'start', label: 'Start', color: '#4CAF50' },
+    { type: 'message', label: 'Message', color: '#607D8B' },
+    { type: 'multichoice', label: 'Multi Choice', color: '#2196F3' },
+    { type: 'button', label: 'Button', color: '#9C27B0' },
+    { type: 'textinput', label: 'Text Input', color: '#FF5722' },
+    { type: 'rating', label: 'Rating', color: '#795548' },
+  ]);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(false);
 
 
   useEffect(() => {
+    if (nodes.length === 0) {
+      setNodes([
+        {
+          id: 'start-1',
+          type: 'start',
+          x: 100,
+          y: 120,
+          data: {
+            title: 'Start',
+            content: 'Start your chatbot flow here',
+            useAI: false,
+          },
+          outputs: ['output-1'],
+        },
+      ]);
+    }
+  }, [nodes.length]);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      setCanvasOffset({ x: rect.left, y: rect.top });
+    }
+  }, [canvasRef]);
+
+  useEffect(() => {
     if (isPreviewMode) {
-      setConversation([{ sender: 'bot', message: welcomeMessage }]);
-    }
-  }, [isPreviewMode, welcomeMessage]);
-  
-  // Add a new rule
-  const addRule = () => {
-    const newRule = {
-      id: Date.now().toString(),
-      trigger: '',
-      response: '',
-      isExactMatch: false,
-      useAI: false,  // Default to false
-    };
-    setRules([...rules, newRule]);
-    setEditingRule(newRule);
-  };
-  
-  // Update a rule
-  const updateRule = (id: string, field: keyof Rule, value: string | boolean) => {
-    setRules(rules.map(rule => 
-      rule.id === id ? { ...rule, [field]: value } : rule
-    ));
-    
-    if (editingRule && editingRule.id === id) {
-      setEditingRule({ ...editingRule, [field]: value });
-    }
-  };
-  
-  // Delete a rule
-  const deleteRule = (id: string) => {
-    setRules(rules.filter(rule => rule.id !== id));
-    if (editingRule && editingRule.id === id) {
-      setEditingRule(null);
-    }
-  };
-
-
-  // Move rule up in order - added type annotation
-  const moveRuleUp = (index: number) => {
-    if (index === 0) return;
-    const newRules = [...rules];
-    [newRules[index-1], newRules[index]] = [newRules[index], newRules[index-1]];
-    setRules(newRules);
-  };
-
-  // Move rule down in order - added type annotation
-  const moveRuleDown = (index: number) => {
-    if (index === rules.length - 1) return;
-    const newRules = [...rules];
-    [newRules[index], newRules[index+1]] = [newRules[index+1], newRules[index]];
-    setRules(newRules);
-  };
-  
-  // Process user message in preview mode
-  const processUserMessage = async (message: string) => {
-  if (!message.trim()) return;
-  
-  // Add user message to conversation
-  setConversation(prev => [...prev, { sender: 'user', message }]);
-  
-  // Clear input field
-  setUserMessage('');
-  
-  // Variable to store the matched rule
-  let matchedRule: Rule | null = null;
-  const userMessageLower = message.toLowerCase();
-  
-  // Find matching rule
-  for (const rule of rules) {
-    const triggerLower = rule.trigger.toLowerCase();
-    
-    if ((rule.isExactMatch && userMessageLower === triggerLower) || 
-        (!rule.isExactMatch && userMessageLower.includes(triggerLower) && triggerLower !== '')) {
-      matchedRule = rule;
-      break;
-    }
-  }
-  
-  if (matchedRule) {
-    if (matchedRule.useAI) {
-      // Show typing indicator
-      setConversation(prev => [...prev, { sender: 'bot', message: '...', isTyping: true }]);
+      setIsInitialLoading(true);
+      setConversation([{ sender: 'bot', message: '...', isTyping: true }]);
       
-      try {
-        console.log("Getting AI response for:", message);
-        // Get AI response
-        const aiResponse = await getAIResponse(message);
-        console.log("AI responded with:", aiResponse);
-        
-        // Replace typing indicator with actual response
-        setConversation(prev => {
-          const updatedConv = [...prev];
-          // Find and replace the typing indicator with the AI response
-          const typingIndex = updatedConv.findIndex(msg => msg.isTyping);
-          if (typingIndex !== -1) {
-            updatedConv[typingIndex] = { sender: 'bot', message: aiResponse };
-          } else {
-            // If no typing indicator found, just append the response
-            updatedConv.push({ sender: 'bot', message: aiResponse });
+      const generatedRules: Rule[] = [];
+      const startNode = nodes.find(node => node.type === 'start');
+      let initialCurrentNodeId: string | null = null;
+
+      // Simulate loading delay
+      setTimeout(() => {
+        let initialMessages: Message[] = [];
+
+        if (startNode) {
+          initialMessages.push({ sender: 'bot', message: startNode.data.content });
+          initialCurrentNodeId = startNode.id;
+
+          const firstStartConnection = connections.find(conn => conn.sourceId === startNode.id);
+          if (firstStartConnection) {
+            const nextNode = nodes.find(node => node.id === firstStartConnection.targetId);
+            if (nextNode) {
+              const messageData: Message = {
+                sender: 'bot',
+                message: nextNode.data.content,
+                nodeId: nextNode.id
+              };
+
+              // Add options if the node is multichoice or button
+              if ((nextNode.type === 'multichoice' || nextNode.type === 'button') && nextNode.data.options) {
+                messageData.options = nextNode.data.options.map(opt => ({
+                  label: opt.label,
+                  value: opt.value
+                }));
+              }
+
+              initialMessages.push(messageData);
+              initialCurrentNodeId = nextNode.id; // Set current node to the first connected node
+            }
           }
-          return updatedConv;
-        });
-      } catch (error) {
-        console.error('AI response error:', error);
-        // Use fallback message if AI fails
-        setConversation(prev => {
-          const updatedConv = [...prev];
-          // Find and replace the typing indicator with the fallback message
-          const typingIndex = updatedConv.findIndex(msg => msg.isTyping);
-          if (typingIndex !== -1) {
-            updatedConv[typingIndex] = { 
-              sender: 'bot', 
-              message: `${matchedRule?.response || fallbackMessage} (Error: ${error.message})` 
-            };
-          } else {
-            // If no typing indicator found, just append the fallback
-            updatedConv.push({ 
-              sender: 'bot', 
-              message: `${matchedRule?.response || fallbackMessage} (Error: ${error.message})` 
+        } else {
+          initialMessages.push({ sender: 'bot', message: welcomeMessage });
+        }
+
+        setConversation(initialMessages);
+        setCurrentNodeId(initialCurrentNodeId);
+        setIsInitialLoading(false);
+
+        connections.forEach(conn => {
+          const targetNode = nodes.find(node => node.id === conn.targetId);
+          if (targetNode) {
+            generatedRules.push({
+              id: generateId('rule'),
+              trigger: conn.sourceOutput, // Connection label is the trigger
+              response: targetNode.data.content, // Target node content is the response
+              isExactMatch: true, // Assuming exact match for flow triggers
+              useAI: targetNode.data.useAI || false, // Use AI setting from target node
             });
           }
-          return updatedConv;
+        });
+
+        setRules(generatedRules); // Set the dynamically generated rules
+      }, 1000); // 1 second loading delay
+    } else {
+      setConversation([]); // Clear conversation when exiting preview
+      setCurrentNodeId(null);
+      setIsInitialLoading(false);
+    }
+  }, [isPreviewMode, nodes, connections, welcomeMessage]);
+
+  const generateId = (prefix: string) => {
+    return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  };
+const exportChatbot = () => {
+  // 1. Prepare your chatbot configuration data
+  // The 'rules' array you showed in your console output is not used by the ChatbotPreview,
+  // so we won't include it in the exported config.
+  const chatbotConfig = {
+    botName,
+    welcomeMessage,
+    fallbackMessage,
+    nodes,       // These are the actual JavaScript objects/arrays from your state
+    connections, // These are the actual JavaScript objects/arrays from your state
+    mountId: 'my-chatbot-widget', // The ID of the div where the chatbot will be injected
+  };
+
+  // 2. Stringify the entire chatbotConfig object into a JSON string
+  // This string will be embedded directly into the JavaScript within the HTML script tag.
+  const configJsonString = JSON.stringify(chatbotConfig, null, 2); // null, 2 for pretty-printing in the output
+
+  // 3. Define the URL where your compiled widget bundle will be hosted.
+  // *** IMPORTANT: You MUST change this URL to where you deploy your 'widget.bundle.js' file. ***
+  // For local testing, if your widget bundle is in the same `build` or `dist` folder as your main app,
+  // and you're testing on the same server, a relative path like '/widget.bundle.js' might work.
+  // But for actual deployment, use an absolute URL (e.g., from a CDN or your web server).
+  const scriptUrl = 'https://your-domain.com/path/to/my-chatbot-widget.bundle.js'; // <<<--- !!! CHANGE THIS URL !!! --->>>
+
+  // 4. Construct the complete HTML script tag
+  const generatedScript = `
+<div id="${chatbotConfig.mountId}"></div>
+<script>
+  // This global variable will hold all the configuration data for the chatbot widget.
+  // It's parsed directly from the JSON string embedded by your builder.
+  window.myChatbotConfig = ${configJsonString};
+
+  // Create a new script element to load the chatbot widget bundle.
+  const script = document.createElement('script');
+  script.id = 'my-chatbot-script';
+  script.src = '${scriptUrl}';
+  script.defer = true; // 'defer' ensures the script executes after the HTML is parsed, but before DOMContentLoaded.
+
+  // When the widget script finishes loading, initialize the chatbot.
+  script.onload = () => {
+    if (window.MyChatbotWidget && window.MyChatbotWidget.init) {
+      // Call the init function exposed by your widget.bundle.js, passing the configuration.
+      window.MyChatbotWidget.init(window.myChatbotConfig);
+    } else {
+      console.error('MyChatbotWidget or its init method not found after script load. Ensure the widget bundle is loaded correctly and window.MyChatbotWidget is exposed globally.');
+    }
+  };
+
+  // Append the script element to the document body to start loading.
+  document.body.appendChild(script);
+</script>
+`;
+
+  // 5. Provide the generated script to the user
+  console.log("Generated Chatbot Script:\n", generatedScript);
+  alert('Chatbot script generated and copied to clipboard! Paste it into your website\'s HTML (preferably before the closing </body> tag).');
+
+  // Copy to clipboard for easy pasting by the user
+  navigator.clipboard.writeText(generatedScript)
+    .then(() => {}) // Success, alert already handled
+    .catch(err => {
+      console.error('Failed to copy script to clipboard: ', err);
+      alert('Failed to copy script to clipboard. Please copy it manually from the console.');
+    });
+};
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (!canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
+
+    const clickedNode = nodes.find((node) => {
+      return x >= node.x && x <= node.x + 200 && y >= node.y && y <= node.y + 80;
+    });
+
+    if (clickedNode) {
+      setSelectedNode(clickedNode);
+      setDraggingNode(clickedNode);
+      setDragOffset({
+        x: x - clickedNode.x,
+        y: y - clickedNode.y,
+      });
+    } else {
+      setSelectedNode(null);
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    if (!draggingNode) {
+      if (creatingConnection) {
+        if (!canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / zoom;
+        const y = (e.clientY - rect.top) / zoom;
+
+        setCreatingConnection({
+          ...creatingConnection,
+          endX: x,
+          endY: y,
         });
       }
-    } else {
-      // Use predefined response
-      setConversation(prev => [...prev, { sender: 'bot', message: matchedRule.response }]);
+      return;
     }
-  } else {
-    // No matching rule found, use fallback message
-    setConversation(prev => [...prev, { sender: 'bot', message: fallbackMessage }]);
-  }
-};
-  
-  // Toggle preview mode
-  const togglePreviewMode = () => {
-    setIsPreviewMode(!isPreviewMode);
+
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / zoom;
+    const y = (e.clientY - rect.top) / zoom;
+
+    setNodes((prevNodes) =>
+      prevNodes.map((node) =>
+        node.id === draggingNode.id ? { ...node, x: x - dragOffset.x, y: y - dragOffset.y } : node
+      )
+    );
   };
-  
-  // Export chatbot configuration
-  const exportChatbot = () => {
-    const chatbotConfig = {
-      name: botName,
-      welcomeMessage,
-      fallbackMessage,
-      rules,
+
+  const handleCanvasMouseUp = () => {
+    setDraggingNode(null);
+
+    if (creatingConnection) {
+      const targetNode = nodes.find((node) => {
+        if (node.id === creatingConnection.sourceNodeId) return false;
+
+        const inputX = node.x; // Input point is on the left edge of the node
+        const inputY = node.y + 40; // Mid-height of the node
+        const distance = Math.sqrt(
+          Math.pow(inputX - creatingConnection.endX, 2) + Math.pow(inputY - creatingConnection.endY, 2)
+        )
+        return distance < 20; // Within 20px radius of the input point
+      });
+
+      if (targetNode) {
+        let sourceOutputIdentifier = 'output-1';
+        const sourceNode = nodes.find(n => n.id === creatingConnection.sourceNodeId);
+        if (sourceNode && (sourceNode.type === 'multichoice' || sourceNode.type === 'button')) {
+            sourceOutputIdentifier = prompt("Enter the text/value that triggers this connection (e.g., 'Yes', 'Option A'):") || 'output-1';
+        }
+        setConnections([
+          ...connections,
+          {
+            id: generateId('conn'),
+            sourceId: creatingConnection.sourceNodeId,
+            sourceOutput: sourceOutputIdentifier, // This will be the trigger for the next node
+            targetId: targetNode.id,
+          },
+        ]);
+      }
+      setCreatingConnection(null);
+    }
+  };
+
+  const startConnection = (nodeId: string, outputId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    const sourceNode = nodes.find((node) => node.id === nodeId);
+    if (!sourceNode) return;
+
+    const outputX = sourceNode.x + 200;
+    const outputY = sourceNode.y + 40;
+
+    setCreatingConnection({
+      sourceNodeId: nodeId,
+      sourceOutput: outputId,
+      startX: outputX,
+      startY: outputY,
+      endX: outputX,
+      endY: outputY,
+    });
+  };
+
+  const addNewNode = (type: Node['type']) => {
+    const nodeType = availableNodeTypes.find((nt) => nt.type === type);
+    if (!nodeType) return;
+    let title: string, content: string;
+    let options: { label: string; value: string; nextNodeId?: string }[] | undefined;
+    let useAI: boolean = false;
+
+    switch (type) {
+      case 'start':
+        title = 'Start';
+        content = 'Start your chatbot flow here';
+        break;
+      case 'message':
+        title = 'Welcome Card';
+        content = 'Welcome to huyu! How can I help you today?';
+        break;
+      case 'multichoice':
+        title = 'Multi Choice Card';
+        content = 'Hey there! Looking out for the best courses for your educational qualification? I can help!';
+        options = [
+          { label: 'Option 1', value: 'option1' },
+          { label: 'Option 2', value: 'option2' },
+        ];
+        break;
+      case 'button':
+        title = 'Button Card';
+        content = 'Hey there! Looking out for the best and economic loan plans? I can help.';
+        options = [
+          { label: 'Yes', value: 'yes' },
+          { label: 'No', value: 'no' },
+        ];
+        break;
+      case 'textinput':
+        title = 'Text Input Card';
+        content = 'Please enter your name.';
+        useAI = true; // Example: Text input might often lead to AI processing
+        break;
+      case 'rating':
+        title = 'Rating Card';
+        content = 'Please rate your experience (1-5).';
+        break;
+      default:
+        title = 'New Card';
+        content = 'Card content';
+    }
+
+    const newNode: Node = {
+      id: generateId(type),
+      type,
+      x: 300,
+      y: 200,
+      data: {
+        title,
+        content,
+        options,
+        useAI,
+      },
+      outputs: type !== 'rating' ? ['output-1'] : [],
     };
 
-    const blob = new Blob([JSON.stringify(chatbotConfig, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
+    setNodes([...nodes, newNode]);
+    setSelectedNode(newNode);
+  };
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${botName.replace(/\s+/g, "-").toLowerCase()}-config.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  const updateNodeData = (nodeId: string, field: keyof NodeData, value: any) => {
+    setNodes((prevNodes) =>
+      prevNodes.map((node) =>
+        node.id === nodeId ? { ...node, data: { ...node.data, [field]: value } } : node
+      )
+    );
+
+    if (selectedNode && selectedNode.id === nodeId) {
+      setSelectedNode({
+        ...selectedNode,
+        data: { ...selectedNode.data, [field]: value },
+      });
+    }
+  };
+
+  const addNodeOption = (nodeId: string) => {
+    setNodes(prevNodes => prevNodes.map(node => {
+      if (node.id === nodeId && (node.type === 'multichoice' || node.type === 'button')) {
+        const newOption = { label: `New Option ${node.data.options ? node.data.options.length + 1 : 1}`, value: `option${Date.now()}` };
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            options: [...(node.data.options || []), newOption]
+          }
+        };
+      }
+      return node;
+    }));
+    if (selectedNode && selectedNode.id === nodeId) {
+      setSelectedNode(prevSelected => {
+        if (prevSelected && (prevSelected.type === 'multichoice' || prevSelected.type === 'button')) {
+          const newOption = { label: `New Option ${prevSelected.data.options ? prevSelected.data.options.length + 1 : 1}`, value: `option${Date.now()}` };
+          return {
+            ...prevSelected,
+            data: {
+              ...prevSelected.data,
+              options: [...(prevSelected.data.options || []), newOption]
+            }
+          };
+        }
+        return prevSelected;
+      });
+    }
+  };
+
+  const updateNodeOption = (nodeId: string, optionIndex: number, field: 'label' | 'value', value: string) => {
+    setNodes(prevNodes => prevNodes.map(node => {
+      if (node.id === nodeId && (node.type === 'multichoice' || node.type === 'button') && node.data.options) {
+        const updatedOptions = [...node.data.options];
+        updatedOptions[optionIndex] = { ...updatedOptions[optionIndex], [field]: value };
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            options: updatedOptions
+          }
+        };
+      }
+      return node;
+    }));
+    if (selectedNode && selectedNode.id === nodeId && (selectedNode.type === 'multichoice' || selectedNode.type === 'button') && selectedNode.data.options) {
+      setSelectedNode(prevSelected => {
+        if (prevSelected) {
+          const updatedOptions = [...prevSelected.data.options!];
+          updatedOptions[optionIndex] = { ...updatedOptions[optionIndex], [field]: value };
+          return {
+            ...prevSelected,
+            data: {
+              ...prevSelected.data,
+              options: updatedOptions
+            }
+          };
+        }
+        return prevSelected;
+      });
+    }
+  };
+
+  const deleteNodeOption = (nodeId: string, optionIndex: number) => {
+    setNodes(prevNodes => prevNodes.map(node => {
+      if (node.id === nodeId && (node.type === 'multichoice' || node.type === 'button') && node.data.options) {
+        const updatedOptions = node.data.options.filter((_, index) => index !== optionIndex);
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            options: updatedOptions
+          }
+        };
+      }
+      return node;
+    }));
+    if (selectedNode && selectedNode.id === nodeId && (selectedNode.type === 'multichoice' || selectedNode.type === 'button') && selectedNode.data.options) {
+      setSelectedNode(prevSelected => {
+        if (prevSelected) {
+          const updatedOptions = prevSelected.data.options!.filter((_, index) => index !== optionIndex);
+          return {
+            ...prevSelected,
+            data: {
+              ...prevSelected.data,
+              options: updatedOptions
+            }
+          };
+        }
+        return prevSelected;
+      });
+    }
+  };
+
+  const deleteNode = (nodeId: string) => {
+    if (nodeId === 'start-1') return; // Prevent deleting start node
+    setNodes((prevNodes) => prevNodes.filter((node) => node.id !== nodeId));
+    setConnections((prevConnections) =>
+      prevConnections.filter((conn) => conn.sourceId !== nodeId && conn.targetId !== nodeId)
+    );
+    if (selectedNode && selectedNode.id === nodeId) {
+      setSelectedNode(null);
+    }
+  };
+
+  const deleteConnection = (connId: string) => {
+    setConnections((prevConnections) => prevConnections.filter((conn) => conn.id !== connId));
+  };
+
+  const handleZoomIn = () => {
+    setZoom((prevZoom) => Math.min(prevZoom + 0.1, 2));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prevZoom) => Math.max(prevZoom - 0.1, 0.5));
   };
 
   return (
@@ -253,14 +544,6 @@ const ChatbotBuilder = () => {
         <div className="header-content">
           <h1 className="app-title">No-Code Chatbot Builder</h1>
           <div className="header-buttons">
-            <button
-              onClick={togglePreviewMode}
-              className={`btn btn-toggle ${
-                isPreviewMode ? "btn-toggle-active" : ""
-              }`}
-            >
-              {isPreviewMode ? "Back to Editor" : "Preview Chatbot"}
-            </button>
             <button onClick={exportChatbot} className="btn btn-export">
               Export Chatbot
             </button>
@@ -269,228 +552,285 @@ const ChatbotBuilder = () => {
       </header>
 
       {isPreviewMode ? (
-        <div className="preview-container">
-          <div className="preview-header">
-            <h2 className="preview-title">{botName} - Preview</h2>
-          </div>
-
-          <div className="chat-window">
-            <div className="chat-messages" id="conversation-container">
-              {conversation.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`chat-message ${
-                    msg.sender === "user" ? "chat-message-user" : "chat-message-bot"
-                  }`}
-                >
-                  <span className="chat-bubble">{msg.message}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="chat-input-container">
-              <input
-                type="text"
-                value={userMessage}
-                onChange={(e) => setUserMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    processUserMessage(userMessage);
-                  }
-                }}
-                placeholder="Type a message..."
-                className="chat-input"
-              />
-              <button
-                onClick={() => processUserMessage(userMessage)}
-                className="chat-send-btn"
-              >
-                Send
-              </button>
-            </div>
-          </div>
-        </div>
+        // ******************************************************
+        // THIS IS THE UPDATED SECTION:
+        // Replace your old preview UI with the new ChatbotPreview component
+        <ChatbotPreview
+        botName={botName}
+        welcomeMessage={welcomeMessage}
+        fallbackMessage={fallbackMessage}
+        nodes={nodes} // Pass the nodes from the builder
+        connections={connections} // Pass the connections from the builder
+      />
+        // ******************************************************
       ) : (
-        <div className="grid-container">
-          {/* Chatbot Settings */}
-          <div className="card chatbot-settings">
-            <h2>Chatbot Settings</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label>Chatbot Name</label>
-                <input
-                  type="text"
-                  value={botName}
-                  onChange={(e) => setBotName(e.target.value)}
-                  className="input-box"
-                />
-              </div>
-              
-              <div>
-                <label>Welcome Message</label>
-                <textarea
-                  value={welcomeMessage}
-                  onChange={(e) => setWelcomeMessage(e.target.value)}
-                  className="input-box"
-                  rows={2}
-                />
-              </div>
-              
-              <div>
-                <label>Fallback Message</label>
-                <textarea
-                  value={fallbackMessage}
-                  onChange={(e) => setFallbackMessage(e.target.value)}
-                  className="input-box"
-                  rows={2}
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Rules List */}
-          <div className="card">
-            <div className="rules-header">
-              <h2>Rules</h2>
-              <div>
-                <button onClick={addRule} className="input-box">
-                  Add Rule
-                </button>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              {rules.map((rule, index) => (
-                <div
-                  key={rule.id}
-                  className={`rule-item ${editingRule && editingRule.id === rule.id ? 'active' : ''}`}
-                  onClick={() => setEditingRule(rule)}
-                >
-                  <div className="truncate">
-                    <span>If: </span>
-                    <span>{rule.trigger || '[No trigger]'}</span>
-                    {rule.useAI && <span className="ai-badge">AI</span>}
-                  </div>
-                  <div className="rule-buttons">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveRuleUp(index);
-                      }}
-                      disabled={index === 0}
-                      title="Move up"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        moveRuleDown(index);
-                      }}
-                      disabled={index === rules.length - 1}
-                      title="Move down"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteRule(rule.id);
-                      }}
-                      className="delete"
-                      title="Delete"
-                    >
-                      ×
-                    </button>
-                  </div>
+        <div className="flow-builder-container">
+          <div className="sidebar">
+            <div className="sidebar-section">
+              <h3>Chatbot Settings</h3>
+              <div className="setting-item">
+                  <label>Name</label>
+                  <input
+                    type="text"
+                    value={botName}
+                    onChange={(e) => setBotName(e.target.value)}
+                    className="input-box"
+                  />
                 </div>
-              ))}
-              
-              {rules.length === 0 && (
-                <div className="text-center">
-                  No rules yet. Click "Add Rule" to create your first rule.
+                <div className="setting-item">
+                  <label>Welcome</label>
+                  <input
+                    type="text"
+                    value={welcomeMessage}
+                    onChange={(e) => setWelcomeMessage(e.target.value)}
+                    className="input-box"
+                  />
+                </div>
+                <div className="setting-item">
+                  <label>Fallback</label>
+                  <input
+                    type="text"
+                    value={fallbackMessage}
+                    onChange={(e) => setFallbackMessage(e.target.value)}
+                    className="input-box"
+                  />
+                </div>
+              </div>
+
+              <div className="sidebar-section">
+                <h3>Node Types</h3>
+                <div className="node-types">
+                  {availableNodeTypes.map((nodeType) => (
+                    <div
+                      key={nodeType.type}
+                      className="node-type-item"
+                      style={{ backgroundColor: nodeType.color }}
+                      onClick={() => addNewNode(nodeType.type)}
+                    >
+                      {nodeType.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedNode && (
+                <div className="sidebar-section">
+                  <h3>Node Properties</h3>
+                  <div className="setting-item">
+                    <label>Title</label>
+                    <input
+                      type="text"
+                      value={selectedNode.data?.title || ''}
+                      onChange={(e) => updateNodeData(selectedNode.id, 'title', e.target.value)}
+                      className="input-box"
+                    />
+                  </div>
+                  <div className="setting-item">
+                    <label>Content</label>
+                    <textarea
+                      value={selectedNode.data?.content || ''}
+                      onChange={(e) => updateNodeData(selectedNode.id, 'content', e.target.value)}
+                      className="input-box"
+                      rows={4}
+                    />
+                  </div>
+
+                  {/* Options for MultiChoice and Button nodes */}
+                  {(selectedNode.type === 'multichoice' || selectedNode.type === 'button') && (
+                    <div className="setting-item">
+                      <label>Options</label>
+                      {selectedNode.data.options?.map((option, index) => (
+                        <div key={index} className="node-option-item">
+                          <input
+                            type="text"
+                            placeholder="Label"
+                            value={option.label}
+                            onChange={(e) => updateNodeOption(selectedNode.id, index, 'label', e.target.value)}
+                            className="input-box small-input"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Value (trigger)"
+                            value={option.value}
+                            onChange={(e) => updateNodeOption(selectedNode.id, index, 'value', e.target.value)}
+                            className="input-box small-input"
+                          />
+                          <button
+                            onClick={() => deleteNodeOption(selectedNode.id, index)}
+                            className="btn btn-delete-option"
+                          >
+                            X
+                          </button>
+                        </div>
+                      ))}
+                      <button onClick={() => addNodeOption(selectedNode.id)} className="btn btn-add-option">
+                        Add Option
+                      </button>
+                    </div>
+                  )}
+
+                  {/* AI Toggle for relevant nodes */}
+                  {(selectedNode.type === 'message' || selectedNode.type === 'textinput') && (
+                    <div className="setting-item">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={selectedNode.data.useAI || false}
+                          onChange={(e) => updateNodeData(selectedNode.id, 'useAI', e.target.checked)}
+                        />
+                        Use AI for response
+                      </label>
+                    </div>
+                  )}
+
+                  {selectedNode.id !== 'start-1' && (
+                    <button onClick={() => deleteNode(selectedNode.id)} className="btn btn-delete">
+                      Delete Node
+                    </button>
+                  )}
                 </div>
               )}
             </div>
-          </div>
-          
-          {/* Rule Editor */}
-          <div className="card rule-editor">
-            <h2>Rule Editor</h2>
-            
-            {editingRule ? (
-              <div className="space-y-4">
-                <div>
-                  <label>When user says (trigger):</label>
-                  <input
-                    type="text"
-                    value={editingRule.trigger}
-                    onChange={(e) => updateRule(editingRule.id, 'trigger', e.target.value)}
-                    placeholder="e.g., hello, how are you, etc."
-                  />
-                </div>
-                
-                <div className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    id="exactMatch"
-                    checked={editingRule.isExactMatch}
-                    onChange={(e) => updateRule(editingRule.id, 'isExactMatch', e.target.checked)}
-                  />
-                  <label htmlFor="exactMatch">Exact match only</label>
-                </div>
-                
-                <div className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    id="useAI"
-                    checked={editingRule.useAI}
-                    onChange={(e) => updateRule(editingRule.id, 'useAI', e.target.checked)}
-                  />
-                  <label htmlFor="useAI">Use AI to generate responses</label>
-                </div>
-                
-                {/* Only show response field when AI is not enabled */}
-                {!editingRule.useAI && (
-                  <div>
-                    <label>Chatbot responds with:</label>
-                    <textarea
-                      value={editingRule.response}
-                      onChange={(e) => updateRule(editingRule.id, 'response', e.target.value)}
-                      rows={4}
-                      placeholder="Enter the chatbot's response here..."
-                    />
-                  </div>
-                )}
-                
-                {/* Show fallback message if AI is enabled */}
-                {editingRule.useAI && (
-                  <div className="ai-note">
-                    <p>AI will generate responses dynamically based on user input.</p>
-                    <div>
-                      <label>Fallback response (if AI fails):</label>
-                      <textarea
-                        value={editingRule.response}
-                        onChange={(e) => updateRule(editingRule.id, 'response', e.target.value)}
-                        rows={2}
-                        placeholder="Fallback response if AI fails..."
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center" style={{padding: '3rem 0'}}>
-                Select a rule from the list or add a new rule to edit.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
-export default ChatbotBuilder;
+            <div className="flow-canvas-container">
+              <div className="flow-canvas-tools">
+                <button onClick={handleZoomIn} className="zoom-btn">
+                  +
+                </button>
+                <span>{Math.round(zoom * 100)}%</span>
+                <button onClick={handleZoomOut} className="zoom-btn">
+                  -
+                </button>
+              </div>
+              <div
+                className="flow-canvas"
+                ref={canvasRef}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseUp={handleCanvasMouseUp}
+                onMouseLeave={handleCanvasMouseUp}
+              >
+                <div className="canvas-content" style={{ transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
+                  <svg className="connections-layer" width="100%" height="100%">
+                    {connections.map((conn) => {
+                      const sourceNode = nodes.find((n) => n.id === conn.sourceId);
+                      const targetNode = nodes.find((n) => n.id === conn.targetId);
+
+                      if (!sourceNode || !targetNode) return null;
+
+                      const startX = sourceNode.x + 200; // Right side of source node
+                      const startY = sourceNode.y + 40; // Mid-height of source node
+                      const endX = targetNode.x; // Left side of target node
+                      const endY = targetNode.y + 40; // Mid-height of target node
+
+                      const controlX1 = startX + 50;
+                      const controlX2 = endX - 50;
+
+                      return (
+                        <g key={conn.id}>
+                          <path
+                            d={`M ${startX} ${startY} C ${controlX1} ${startY}, ${controlX2} ${endY}, ${endX} ${endY}`}
+                            fill="none"
+                            stroke="#888"
+                            strokeWidth="2"
+                            onClick={() => deleteConnection(conn.id)}
+                          />
+                          <circle cx={endX} cy={endY} r="5" fill="#888" />
+                          {/* Connection Label */}
+                          <text
+                            x={(startX + endX) / 2}
+                            y={(startY + endY) / 2 - 10}
+                            fill="#555"
+                            fontSize="10"
+                            textAnchor="middle"
+                            pointerEvents="none"
+                          >
+                            {conn.sourceOutput}
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {creatingConnection && (
+                      <path
+                        d={`M ${creatingConnection.startX} ${creatingConnection.startY}
+                          C ${creatingConnection.startX + 50} ${creatingConnection.startY},
+                            ${creatingConnection.endX - 50} ${creatingConnection.endY},
+                            ${creatingConnection.endX} ${creatingConnection.endY}`}
+                        fill="none"
+                        stroke="#888"
+                        strokeWidth="2"
+                        strokeDasharray="5,5"
+                      />
+                    )}
+                  </svg>
+                  {nodes.map((node) => {
+                    const nodeType = availableNodeTypes.find((nt) => nt.type === node.type);
+                    return (
+                      <div
+                        key={node.id}
+                        className={`flow-node ${selectedNode?.id === node.id ? 'selected' : ''}`}
+                        style={{
+                          left: node.x,
+                          top: node.y,
+                          backgroundColor: nodeType?.color || '#ddd',
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedNode(node);
+                        }}
+                      >
+                        <div className="flow-node-header">
+                          {node.data?.title || 'Unnamed Node'}
+                          <div className="flow-node-input">
+                            <div className="input-point" />
+                          </div>
+                        </div>
+                        <div className="flow-node-content">
+                          {node.data?.content || 'No content'}
+                        </div>
+                        {node.outputs && node.outputs.length > 0 && (
+                          <div className="flow-node-outputs">
+                            {node.outputs.map((output: string) => (
+                              <div
+                                key={output}
+                                className="output-point"
+                                onMouseDown={(e) => startConnection(node.id, output, e)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {(node.type === 'multichoice' || node.type === 'button') && node.data.options && (
+                          <div className="node-options-display">
+                            {node.data.options.map((option, index) => (
+                              <div
+                                key={index}
+                                className="node-option-item-display">
+                                {option.label}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flow-node-type">
+                          {nodeType?.type.toUpperCase() || 'NODE'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <ChatbotPreview
+        botName={botName}
+        welcomeMessage={welcomeMessage}
+        fallbackMessage={fallbackMessage}
+        nodes={nodes} // Pass the nodes from the builder
+        connections={connections} // Pass the connections from the builder
+      />
+      </div>
+    );
+  };
+
+  export default ChatbotBuilder;
